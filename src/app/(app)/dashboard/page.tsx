@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getLatestStrategy } from "@/features/strategy";
 import { getLatestPlaybook } from "@/features/playbook/data/playbook";
 import { getSetupCount } from "@/features/setup";
+import { getTrainableSetups } from "@/features/training";
 import { INTAKE_STEPS } from "@/features/strategy/types";
 import type { IntakeStepNumber } from "@/features/strategy/types";
 
@@ -25,6 +26,11 @@ export default async function DashboardPage() {
 
   const setupCount =
     strategy?.status === "ACTIVE" ? await getSetupCount(userId) : 0;
+
+  const trainableSetups =
+    strategy?.status === "ACTIVE" && playbook?.status === "CONFIRMED"
+      ? await getTrainableSetups(userId)
+      : [];
 
   // ── Derive display state ──────────────────────────────────────────────
 
@@ -83,9 +89,19 @@ export default async function DashboardPage() {
       />
     );
   } else if (strategy.status === "ACTIVE" && playbook?.status === "CONFIRMED") {
-    const checklistN = playbook.rules.filter((r) => r.inChecklist).length;
+    const checklistN    = playbook.rules.filter((r) => r.inChecklist).length;
+    const readyToTrain  = trainableSetups.length > 0;
+    const totalExamples = trainableSetups.reduce((sum, s) => sum + s.exampleCount, 0);
     subtitle = `v${playbook.version} · ${playbook.rules.length} rules confirmed`;
-    nextActionCard = (
+
+    nextActionCard = readyToTrain ? (
+      <NextActionCard
+        title="Your playbook is confirmed. Start training."
+        description={`${trainableSetups.length} setup${trainableSetups.length !== 1 ? "s" : ""} ready · ${totalExamples} example${totalExamples !== 1 ? "s" : ""}. Run a recognition drill to sharpen your eye.`}
+        cta="Start training →"
+        href="/training"
+      />
+    ) : (
       <div className="card-surface accent-border-left bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)] flex items-center gap-6 px-6 py-5">
         <div>
           <p className="text-[15px] font-semibold text-primary tracking-tight">
@@ -93,19 +109,19 @@ export default async function DashboardPage() {
           </p>
           <p className="text-[13px] text-secondary leading-snug mt-1">
             {playbook.rules.length} rules active · {checklistN} in pre-trade checklist.
-            {" "}Training sessions are available once you have setups.
+            {" "}Add annotated examples to your setups to unlock training sessions.
           </p>
         </div>
-        <a href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
-          View playbook →
+        <a href="/setups" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
+          Go to setups →
         </a>
       </div>
     );
   }
 
-  // Playbook stats (shown when confirmed).
-  const ruleCount       = playbook?.rules.length ?? 0;
-  const checklistCount  = playbook?.rules.filter((r) => r.inChecklist).length ?? 0;
+  // Playbook + session stats.
+  const ruleCount      = playbook?.rules.length ?? 0;
+  const checklistCount = playbook?.rules.filter((r) => r.inChecklist).length ?? 0;
 
   return (
     <div className="flex flex-col min-h-full">

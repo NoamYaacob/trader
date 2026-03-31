@@ -19,9 +19,10 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts   Account[]
-  sessions   Session[]
-  strategies Strategy[]
+  accounts         Account[]
+  sessions         Session[]
+  strategies       Strategy[]
+  trainingSessions TrainingSession[]
 }
 
 model Account {
@@ -116,9 +117,10 @@ model Playbook {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
-  rules    Rule[]
-  setups   Setup[]
+  strategy         Strategy          @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  rules            Rule[]
+  setups           Setup[]
+  trainingSessions TrainingSession[]
 
   @@unique([strategyId, version])
 }
@@ -183,5 +185,40 @@ model SetupExample {
 
   createdAt DateTime @default(now())
 
-  setup Setup @relation(fields: [setupId], references: [id], onDelete: Cascade)
+  setup    Setup            @relation(fields: [setupId], references: [id], onDelete: Cascade)
+  attempts TrainingAttempt[]
+}
+
+// ─────────────────────────────────────────────
+// Training sessions
+// ─────────────────────────────────────────────
+
+model TrainingSession {
+  id           String    @id @default(cuid())
+  userId       String
+  playbookId   String
+  // Shuffled list of SetupExample IDs — determines presentation order.
+  exampleOrder String[]
+  score        Int?      // null until completed; 0–100
+  totalCount   Int       @default(0)
+  correctCount Int       @default(0)
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playbook Playbook          @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  attempts TrainingAttempt[]
+}
+
+model TrainingAttempt {
+  id         String                @id @default(cuid())
+  sessionId  String
+  exampleId  String
+  userAnswer ExampleClassification
+  isCorrect  Boolean
+  answeredAt DateTime              @default(now())
+
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  example SetupExample    @relation(fields: [exampleId], references: [id], onDelete: Cascade)
 }
