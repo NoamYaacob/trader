@@ -10,7 +10,7 @@ export function StepInvalidation({ invalidationConditions, onChange }: Props) {
   return (
     <div>
       <Label htmlFor="invalidation">Invalidation conditions</Label>
-      <p className="text-[11px] text-muted mb-2">
+      <p className="text-[11px] text-secondary mb-2">
         What would make you skip this trade entirely? What would cause you to
         exit before your target? Include conditions that make a setup low
         probability or against your rules.
@@ -20,7 +20,7 @@ export function StepInvalidation({ invalidationConditions, onChange }: Props) {
         value={invalidationConditions}
         onChange={(e) => onChange(e.target.value)}
         placeholder="I do not take the trade if..."
-        className="min-h-[180px]"
+        className="min-h-[200px]"
         autoFocus
       />
     </div>

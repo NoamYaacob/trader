@@ -18,7 +18,7 @@ export function StepSetups({
     <div className="flex flex-col gap-6">
       <div>
         <Label htmlFor="valid">What makes a setup valid?</Label>
-        <p className="text-[11px] text-muted mb-2">
+        <p className="text-[11px] text-secondary mb-2">
           Describe the specific characteristics that confirm a setup is worth
           taking. What must you see?
         </p>
@@ -27,13 +27,13 @@ export function StepSetups({
           value={whatMakesValid}
           onChange={(e) => onChangeValid(e.target.value)}
           placeholder="A valid setup has..."
-          className="min-h-[140px]"
+          className="min-h-[160px]"
           autoFocus
         />
       </div>
       <div>
         <Label htmlFor="invalid">What makes a setup invalid or borderline?</Label>
-        <p className="text-[11px] text-muted mb-2">
+        <p className="text-[11px] text-secondary mb-2">
           Describe what distinguishes a low-quality or invalid version of this
           setup from a clean one.
         </p>
@@ -42,7 +42,7 @@ export function StepSetups({
           value={whatMakesInvalid}
           onChange={(e) => onChangeInvalid(e.target.value)}
           placeholder="I skip the setup if..."
-          className="min-h-[140px]"
+          className="min-h-[160px]"
         />
       </div>
     </div>

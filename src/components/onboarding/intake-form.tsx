@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { StepIndicator } from "./step-indicator";
@@ -19,13 +19,21 @@ interface IntakeFormProps {
   strategy: StrategyRecord;
 }
 
+const stepVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir * 24 }),
+  center:              { opacity: 1, x: 0 },
+  exit:  (dir: number) => ({ opacity: 0, x: dir * -24 }),
+};
+
 export function IntakeForm({ strategy }: IntakeFormProps) {
   const [step, setStep] = useState<IntakeStepNumber>(
     Math.min(strategy.intakeStep, TOTAL_STEPS) as IntakeStepNumber
   );
-  const [fields, setFields] = useState({ ...strategy.intake });
-  const [error, setError] = useState<string | null>(null);
+  const [fields, setFields]     = useState({ ...strategy.intake });
+  const [error, setError]       = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const direction = useRef<1 | -1>(1);
 
   const currentMeta = INTAKE_STEPS[step];
 
@@ -35,7 +43,10 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
   }
 
   function handleBack() {
-    if (step > 1) setStep((s) => (s - 1) as IntakeStepNumber);
+    if (step > 1 && !isPending && !justSaved) {
+      direction.current = -1;
+      setStep((s) => (s - 1) as IntakeStepNumber);
+    }
   }
 
   function handleContinue() {
@@ -48,6 +59,10 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
       if (step < TOTAL_STEPS) {
         const result = await saveIntakeStep(strategy.id, step, stepData);
         if (!result.success) { setError(result.error); return; }
+        setJustSaved(true);
+        await new Promise<void>((r) => setTimeout(r, 600));
+        setJustSaved(false);
+        direction.current = 1;
         setStep((s) => (s + 1) as IntakeStepNumber);
       } else {
         const result = await submitIntake(strategy.id, stepData);
@@ -56,6 +71,19 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
       }
     });
   }
+
+  // Cmd+Enter / Ctrl+Enter keyboard shortcut
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (!isPending && !justSaved) handleContinue();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, fields, isPending, justSaved]);
 
   return (
     <div className="flex flex-col gap-8 max-w-[580px] w-full mx-auto py-12 px-4">
@@ -75,12 +103,14 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
           {currentMeta.subtitle}
         </p>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={direction.current}>
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            custom={direction.current}
+            variants={stepVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             transition={{ duration: 0.18, ease: "easeOut" as const }}
           >
             {step === 1 && (
@@ -133,9 +163,18 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
 
         {/* Error message */}
         {error && (
-          <p className="mt-3 text-[12px] text-invalid leading-snug">{error}</p>
+          <div className="mt-4 px-3 py-2.5 border-l-2 border-invalid bg-invalid/5 rounded-r">
+            <p className="text-[12px] text-invalid leading-snug">{error}</p>
+          </div>
         )}
       </div>
+
+      {/* Final step note */}
+      {step === TOTAL_STEPS && (
+        <p className="text-[12px] text-muted leading-relaxed -mt-4">
+          Last step. Submitting will send your strategy for AI processing — your playbook will be ready shortly.
+        </p>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -143,22 +182,27 @@ export function IntakeForm({ strategy }: IntakeFormProps) {
           variant="ghost"
           size="sm"
           onClick={handleBack}
-          disabled={step === 1 || isPending}
+          disabled={step === 1 || isPending || justSaved}
         >
           ← Back
         </Button>
 
-        <Button
-          variant="primary"
-          onClick={handleContinue}
-          disabled={isPending}
-        >
-          {isPending
-            ? "Saving…"
-            : step === TOTAL_STEPS
-            ? "Complete intake"
-            : "Continue →"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {justSaved && (
+            <span className="text-[12px] text-accent font-mono tracking-wide">Saved ✓</span>
+          )}
+          <Button
+            variant="primary"
+            onClick={handleContinue}
+            disabled={isPending || justSaved}
+          >
+            {isPending && !justSaved
+              ? "Saving…"
+              : step === TOTAL_STEPS
+              ? "Complete intake"
+              : "Continue →"}
+          </Button>
+        </div>
       </div>
 
     </div>

@@ -10,7 +10,7 @@ export function StepEntry({ entryConditions, onChange }: Props) {
   return (
     <div>
       <Label htmlFor="entry">Entry conditions</Label>
-      <p className="text-[11px] text-muted mb-2">
+      <p className="text-[11px] text-secondary mb-2">
         List the specific conditions that must be true before you enter.
         Be as concrete as possible — price action, indicators, market structure,
         time of day, volume, etc.
@@ -20,7 +20,7 @@ export function StepEntry({ entryConditions, onChange }: Props) {
         value={entryConditions}
         onChange={(e) => onChange(e.target.value)}
         placeholder="I enter when..."
-        className="min-h-[180px]"
+        className="min-h-[200px]"
         autoFocus
       />
     </div>

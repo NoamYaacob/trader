@@ -12,7 +12,7 @@ export function StepInstrument({ instrument, timeframe, onChange }: Props) {
     <div className="flex flex-col gap-6">
       <div>
         <Label htmlFor="instrument">Instrument</Label>
-        <p className="text-[11px] text-muted mb-2">
+        <p className="text-[11px] text-secondary mb-2">
           The market, symbol, or asset class you trade.
         </p>
         <Input
@@ -25,7 +25,7 @@ export function StepInstrument({ instrument, timeframe, onChange }: Props) {
       </div>
       <div>
         <Label htmlFor="timeframe">Timeframe</Label>
-        <p className="text-[11px] text-muted mb-2">
+        <p className="text-[11px] text-secondary mb-2">
           The primary chart timeframe you use for entries.
         </p>
         <Input

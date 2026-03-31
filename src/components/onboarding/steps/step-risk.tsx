@@ -10,7 +10,7 @@ export function StepRisk({ riskRules, onChange }: Props) {
   return (
     <div>
       <Label htmlFor="risk">Risk rules</Label>
-      <p className="text-[11px] text-muted mb-2">
+      <p className="text-[11px] text-secondary mb-2">
         Describe your position sizing, maximum risk per trade, maximum daily
         loss, and any hard rules you follow to protect your capital.
       </p>
@@ -19,7 +19,7 @@ export function StepRisk({ riskRules, onChange }: Props) {
         value={riskRules}
         onChange={(e) => onChange(e.target.value)}
         placeholder="I risk no more than..."
-        className="min-h-[180px]"
+        className="min-h-[200px]"
         autoFocus
       />
     </div>

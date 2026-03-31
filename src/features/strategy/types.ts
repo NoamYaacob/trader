@@ -29,38 +29,38 @@ export const INTAKE_STEPS: Record<
   { title: string; subtitle: string; fields: (keyof StrategyIntakeData)[] }
 > = {
   1: {
-    title:    "Instrument & Timeframe",
-    subtitle: "What do you trade, and on which timeframe?",
+    title:    "What do you trade?",
+    subtitle: "Name the instrument and timeframe at the center of your strategy. Be specific — this anchors every rule we build from here.",
     fields:   ["instrument", "timeframe"],
   },
   2: {
-    title:    "Strategy Overview",
-    subtitle: "Describe your overall trading approach in your own words.",
+    title:    "How do you trade it?",
+    subtitle: "Describe your overall approach in plain language. What is your edge? What market conditions does your strategy depend on? Write freely.",
     fields:   ["overview"],
   },
   3: {
-    title:    "Entry Conditions",
-    subtitle: "What conditions must be true before you enter a trade?",
+    title:    "When do you enter?",
+    subtitle: "List every condition that must be true before you press the button. Price action, structure, context — whatever is part of your read.",
     fields:   ["entryConditions"],
   },
   4: {
-    title:    "Exit Conditions",
-    subtitle: "What is your target? When and how do you exit?",
+    title:    "When do you exit?",
+    subtitle: "Your profit target, your stop, and how you manage the position once it is open. Include partials, trailing rules, and time-based exits.",
     fields:   ["exitConditions"],
   },
   5: {
-    title:    "Invalidation Conditions",
-    subtitle: "What would make you not take this trade, or exit early?",
+    title:    "What makes you stay out?",
+    subtitle: "The conditions that override a setup — that tell you to skip it or exit early. Your invalidation logic is where discipline is built.",
     fields:   ["invalidationConditions"],
   },
   6: {
-    title:    "Risk Rules",
-    subtitle: "Your position sizing, max loss, and trade management rules.",
+    title:    "How do you manage risk?",
+    subtitle: "Position sizing, maximum loss per trade, daily loss limits, and the hard rules you follow to protect capital regardless of conviction.",
     fields:   ["riskRules"],
   },
   7: {
-    title:    "Setup Recognition",
-    subtitle: "What specifically distinguishes a valid setup from an invalid one?",
+    title:    "Valid vs marginal setups.",
+    subtitle: "What specifically separates a clean, high-quality setup from a borderline one? This becomes the foundation of your training library.",
     fields:   ["whatMakesValid", "whatMakesInvalid"],
   },
 };
