@@ -1,30 +1,36 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { RuleGroup } from "./rule-group";
-import { confirmPlaybook } from "@/server/actions/playbook";
+import { confirmPlaybook, regeneratePlaybook } from "@/server/actions/playbook";
 import { groupRulesByCategory } from "@/features/playbook";
 import { CATEGORY_ORDER } from "@/features/playbook/types";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { PlaybookRecord, PlaybookRule } from "@/features/playbook/types";
 
 interface PlaybookReviewProps {
-  playbook: PlaybookRecord;
+  playbook:  PlaybookRecord;
+  // When true, renders in full read-only mode with no confirm bar or regenerate actions.
+  // Used for the archived version view.
+  archived?: boolean;
 }
 
-export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
-  // All edits operate on local rule state — server actions fire in background.
-  const [rules, setRules]            = useState<PlaybookRule[]>(initial.rules);
-  const [confirmed, setConfirmed]    = useState(initial.status === "CONFIRMED");
-  const [error, setError]            = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+export function PlaybookReview({ playbook: initial, archived = false }: PlaybookReviewProps) {
+  const [rules, setRules]               = useState<PlaybookRule[]>(initial.rules);
+  const [confirmed, setConfirmed]       = useState(initial.status === "CONFIRMED");
+  const [showRegen, setShowRegen]       = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [isPending, startTransition]    = useTransition();
+  const [isRegening, startRegenTrans]   = useTransition();
 
-  const grouped     = groupRulesByCategory(rules);
-  const checklistN  = rules.filter((r) => r.inChecklist).length;
-  const readOnly    = confirmed;
+  const grouped    = groupRulesByCategory(rules);
+  const checklistN = rules.filter((r) => r.inChecklist).length;
+  // Read-only when archived externally OR when confirmed (no editing after confirm).
+  const readOnly   = archived || confirmed;
 
-  // ── Rule mutations (local state) ────────────────────────────────────────
+  // ── Rule mutations ─────────────────────────────────────────────────────────
 
   function handleDelete(ruleId: string) {
     setRules((prev) => prev.filter((r) => r.id !== ruleId));
@@ -46,14 +52,26 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
     setRules((prev) => [...prev, rule]);
   }
 
-  // ── Confirm ─────────────────────────────────────────────────────────────
+  // ── Confirm ────────────────────────────────────────────────────────────────
 
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
       const result = await confirmPlaybook(initial.id);
-      // confirmPlaybook redirects on success — only reaches here on error.
       if (result && !result.success) setError(result.error);
+    });
+  }
+
+  // ── Regenerate ─────────────────────────────────────────────────────────────
+
+  function handleRegenConfirm() {
+    setError(null);
+    startRegenTrans(async () => {
+      const result = await regeneratePlaybook(initial.id);
+      if (result && !result.success) {
+        setError(result.error);
+        setShowRegen(false);
+      }
     });
   }
 
@@ -66,15 +84,39 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
           v{initial.version}
         </span>
         <span
-          className={
-            confirmed
-              ? "text-[11px] font-mono text-accent"
-              : "text-[11px] font-mono text-secondary"
-          }
+          className={cn(
+            "text-[11px] font-mono",
+            archived      ? "text-muted"
+            : confirmed   ? "text-accent"
+            : "text-secondary"
+          )}
         >
-          {confirmed ? "Confirmed" : "Draft — review and confirm"}
+          {archived ? "Archived" : confirmed ? "Confirmed" : "Draft — review and confirm"}
         </span>
+        {!archived && (
+          <a
+            href="/playbook/history"
+            className="text-[11px] text-muted hover:text-secondary transition-colors font-mono ml-auto"
+          >
+            Version history →
+          </a>
+        )}
       </div>
+
+      {/* Archived banner */}
+      {archived && (
+        <div className="flex items-center justify-between gap-4 px-4 py-3 rounded border border-border bg-[var(--bg-inset)]">
+          <p className="text-[12px] text-muted">
+            This is an archived version. All rules are read-only.
+          </p>
+          <a
+            href="/playbook"
+            className="text-[11px] text-accent hover:text-primary transition-colors font-mono shrink-0"
+          >
+            ← Current version
+          </a>
+        </div>
+      )}
 
       {/* AI-generated summary */}
       {initial.summary && (
@@ -89,17 +131,20 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
         </motion.div>
       )}
 
-      {/* Checklist note */}
-      <div className="flex items-center gap-2">
-        <div className="w-3 h-3 rounded-sm border border-accent bg-accent/10 flex items-center justify-center">
-          <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
-            <path d="M0.5 2.5l1.5 1.5 3.5-3.5" stroke="var(--color-accent)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      {/* Checklist note — only shown when not archived */}
+      {!archived && (
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-sm border border-accent bg-accent/10 flex items-center justify-center">
+            <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
+              <path d="M0.5 2.5l1.5 1.5 3.5-3.5" stroke="var(--color-accent)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="text-[12px] text-muted">
+            {checklistN} rule{checklistN !== 1 ? "s" : ""} in your pre-trade checklist.
+            {!confirmed && " Click the checkbox on any rule to add or remove it."}
+          </p>
         </div>
-        <p className="text-[12px] text-muted">
-          {checklistN} rule{checklistN !== 1 ? "s" : ""} in your pre-trade checklist. Click the checkbox on any rule to add or remove it.
-        </p>
-      </div>
+      )}
 
       {/* Rule groups */}
       <div className="flex flex-col gap-8">
@@ -118,8 +163,52 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
         ))}
       </div>
 
-      {/* Confirm bar — only shown for DRAFT playbooks */}
-      {!confirmed && (
+      {/* Regenerate confirmation panel — inline, shown only when triggered */}
+      <AnimatePresence>
+        {showRegen && (
+          <motion.div
+            key="regen-confirm"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.18, ease: "easeOut" as const }}
+            className="rounded border border-border-strong bg-[var(--bg-elevated)] px-5 py-4 flex flex-col gap-4"
+          >
+            <div>
+              <p className="text-[14px] font-semibold text-primary mb-1.5">
+                Regenerate from strategy?
+              </p>
+              <p className="text-[13px] text-secondary leading-relaxed">
+                This will archive <span className="font-mono text-primary">v{initial.version}</span> and
+                create a new draft from your current strategy intake.
+                Your existing training sessions and trade reviews will not be affected —
+                they keep their original playbook reference.
+              </p>
+            </div>
+            {error && <p className="text-[11px] text-invalid font-mono">{error}</p>}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="primary"
+                onClick={handleRegenConfirm}
+                disabled={isRegening}
+              >
+                {isRegening ? "Regenerating…" : "Yes, regenerate →"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setShowRegen(false); setError(null); }}
+                disabled={isRegening}
+                className="text-[13px] text-muted hover:text-secondary transition-colors font-mono"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom bar — confirm bar for DRAFT, regenerate trigger for CONFIRMED */}
+      {!archived && !confirmed && (
         <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-[var(--color-surface)]/95 backdrop-blur-sm">
           <div className="max-w-[680px] mx-auto px-4 py-4 flex items-center justify-between gap-4">
             <div>
@@ -127,9 +216,7 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
                 {rules.length} rule{rules.length !== 1 ? "s" : ""} · {checklistN} in checklist
               </p>
               <p className="text-[11px] text-muted">
-                {readOnly
-                  ? "Edit rules by clicking their text."
-                  : "Edit any rule by clicking its text. Confirm when ready."}
+                Edit any rule by clicking its text. Confirm when ready.
               </p>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -145,6 +232,20 @@ export function PlaybookReview({ playbook: initial }: PlaybookReviewProps) {
           </div>
         </div>
       )}
+
+      {/* Regenerate trigger — shown only on CONFIRMED (not archived, not draft) */}
+      {!archived && confirmed && !showRegen && (
+        <div className="border-t border-border pt-6">
+          <button
+            type="button"
+            onClick={() => setShowRegen(true)}
+            className="text-[12px] text-muted hover:text-secondary transition-colors font-mono"
+          >
+            Regenerate playbook from strategy →
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }

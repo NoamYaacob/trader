@@ -107,6 +107,66 @@ export async function getLatestPlaybook(
   return row ? toPlaybookRecord(row) : null;
 }
 
+// Returns a specific playbook by ID (verifies ownership via strategy chain).
+export async function getPlaybookById(
+  playbookId: string,
+  userId: string
+): Promise<PlaybookRecord | null> {
+  const row = await prisma.playbook.findFirst({
+    where:   { id: playbookId, strategy: { userId } },
+    include: { rules: true },
+  });
+  return row ? toPlaybookRecord(row) : null;
+}
+
+// Returns all playbook versions for a strategy, newest first.
+// Used for the version history page.
+export interface PlaybookVersionSummary {
+  id:          string;
+  version:     number;
+  status:      "DRAFT" | "CONFIRMED" | "ARCHIVED";
+  ruleCount:   number;
+  confirmedAt: Date | null;
+  createdAt:   Date;
+}
+
+export async function getAllPlaybookVersions(
+  strategyId: string,
+  userId: string
+): Promise<PlaybookVersionSummary[]> {
+  const rows = await prisma.playbook.findMany({
+    where:   { strategyId, strategy: { userId } },
+    orderBy: { version: "desc" },
+    include: { rules: { select: { id: true } } },
+  });
+  return rows.map((row) => ({
+    id:          row.id,
+    version:     row.version,
+    status:      row.status as PlaybookVersionSummary["status"],
+    ruleCount:   row.rules.length,
+    confirmedAt: row.confirmedAt,
+    createdAt:   row.createdAt,
+  }));
+}
+
+// Archives a playbook (CONFIRMED → ARCHIVED).
+// Only the current CONFIRMED version can be archived.
+export async function archivePlaybook(
+  playbookId: string,
+  userId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const count = await prisma.playbook.updateMany({
+      where: { id: playbookId, status: "CONFIRMED", strategy: { userId } },
+      data:  { status: "ARCHIVED" },
+    });
+    if (count.count === 0) return { success: false, error: "Playbook not found or not confirmed." };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to archive playbook." };
+  }
+}
+
 // Marks a playbook as CONFIRMED and sets confirmedAt.
 export async function confirmPlaybook(
   playbookId: string,

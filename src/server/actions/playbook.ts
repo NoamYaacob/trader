@@ -7,6 +7,7 @@ import {
   createPlaybookWithRules,
   getLatestPlaybook,
   confirmPlaybook as dbConfirmPlaybook,
+  archivePlaybook as dbArchivePlaybook,
   updateRule as dbUpdateRule,
   removeRule as dbRemoveRule,
   setRuleChecklist as dbSetRuleChecklist,
@@ -83,6 +84,35 @@ export async function confirmPlaybook(
   const result = await dbConfirmPlaybook(playbookId, userId);
   if (!result.success) return result;
   redirect("/dashboard");
+}
+
+// Archives the current CONFIRMED playbook, then generates a new version from
+// the same strategy intake. The new version starts as DRAFT for the user to review.
+// Old training sessions and trade reviews reference their original playbookId and
+// are unaffected — archived playbooks are never deleted.
+export async function regeneratePlaybook(
+  playbookId: string
+): Promise<{ success: false; error: string } | never> {
+  const userId = await requireUserId();
+
+  // Verify ownership and load the playbook's strategyId.
+  const playbook = await prisma.playbook.findFirst({
+    where:  { id: playbookId, status: "CONFIRMED", strategy: { userId } },
+    select: { id: true, strategyId: true },
+  });
+  if (!playbook) {
+    return { success: false, error: "Playbook not found or not confirmed." };
+  }
+
+  // Archive the current version first.
+  const archiveResult = await dbArchivePlaybook(playbookId, userId);
+  if (!archiveResult.success) return archiveResult;
+
+  // Generate new version using the existing AI adapter path.
+  // Re-uses the same generatePlaybook logic from initial intake processing.
+  await generatePlaybook(playbook.strategyId, userId);
+
+  redirect("/playbook");
 }
 
 // Updates the text of a rule inline.
