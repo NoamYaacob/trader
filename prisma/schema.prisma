@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Auth — NextAuth required models
+// ─────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  hashedPassword String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  strategies Strategy[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────
+// Domain — Strategy & Playbook system
+// ─────────────────────────────────────────────
+
+enum StrategyStatus {
+  DRAFT
+  SUBMITTED
+  PROCESSING
+  ACTIVE
+  ARCHIVED
+}
+
+model Strategy {
+  id     String @id @default(cuid())
+  userId String
+
+  // Intake fields — filled incrementally during onboarding
+  instrument             String? @db.Text
+  timeframe              String? @db.Text
+  overview               String? @db.Text
+  entryConditions        String? @db.Text
+  exitConditions         String? @db.Text
+  invalidationConditions String? @db.Text
+  riskRules              String? @db.Text
+  whatMakesValid         String? @db.Text
+  whatMakesInvalid       String? @db.Text
+
+  // Onboarding progress tracking
+  intakeStep Int            @default(1)
+  status     StrategyStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playbooks Playbook[]
+}
+
+enum PlaybookStatus {
+  DRAFT
+  CONFIRMED
+  ARCHIVED
+}
+
+model Playbook {
+  id          String         @id @default(cuid())
+  userId      String
+  strategyId  String
+  version     Int            @default(1)
+  summary     String?        @db.Text
+  status      PlaybookStatus @default(DRAFT)
+  confirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  strategy Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  rules    Rule[]
+  setups   Setup[]
+
+  @@unique([strategyId, version])
+}
+
+enum RuleCategory {
+  ENTRY
+  EXIT
+  INVALIDATION
+  RISK
+  MINDSET
+}
+
+enum RuleSource {
+  AI_GENERATED
+  TRADER_ADDED
+}
+
+model Rule {
+  id          String       @id @default(cuid())
+  playbookId  String
+  text        String       @db.Text
+  category    RuleCategory
+  source      RuleSource   @default(AI_GENERATED)
+  inChecklist Boolean      @default(false)
+  order       Int          @default(0)
+
+  createdAt DateTime @default(now())
+
+  playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+}
+
+model Setup {
+  id                    String  @id @default(cuid())
+  playbookId            String
+  userId                String
+  name                  String
+  description           String? @db.Text
+  entryCondition        String? @db.Text
+  exitCondition         String? @db.Text
+  invalidationCondition String? @db.Text
+  tags                  String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  playbook Playbook       @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  examples SetupExample[]
+}
+
+enum ExampleClassification {
+  VALID
+  INVALID
+}
+
+model SetupExample {
+  id             String                @id @default(cuid())
+  setupId        String
+  imageUrl       String
+  annotationData Json?
+  classification ExampleClassification
+  notes          String?               @db.Text
+
+  createdAt DateTime @default(now())
+
+  setup Setup @relation(fields: [setupId], references: [id], onDelete: Cascade)
+}

@@ -11,7 +11,7 @@ out/
 dist/
 build/
 
-# Env files
+# Env files — .env.local.example is committed as a template
 .env
 .env.local
 .env.development.local
