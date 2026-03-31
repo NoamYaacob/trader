@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────
+   Obsidian Edge — Design Token Definitions
+───────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Surface system */
+    --bg-base:     #0d0d0f;
+    --bg-surface:  #131316;
+    --bg-elevated: #1a1a1e;
+    --bg-overlay:  #222228;
+    --bg-inset:    #0a0a0c;
+
+    /* Borders */
+    --border-default: #1e1e24;
+    --border-strong:  #2c2c35;
+    --border-focus:   #c9a84c;
+
+    /* Accent — muted gold */
+    --accent:       #c9a84c;
+    --accent-hover: #d4b45c;
+    --accent-active: #bfa045;
+    --accent-dim:   rgba(201, 168, 76, 0.10);
+
+    /* Text hierarchy */
+    --text-primary:   #f0f0f2;
+    --text-secondary: #8a8a96;
+    --text-muted:     #46464f;
+
+    /* Status colors */
+    --status-valid:   #3da882;
+    --status-invalid: #d95f5f;
+    --status-warning: #c97a3d;
+
+    /* shadcn required CSS variables — mapped to our tokens */
+    --background:          13 13 15;     /* #0d0d0f  hsl channels */
+    --foreground:          240 3% 94%;
+    --card:                240 7% 8%;
+    --card-foreground:     240 3% 94%;
+    --popover:             240 6% 13%;
+    --popover-foreground:  240 3% 94%;
+    --primary:             39 55% 54%;
+    --primary-foreground:  240 8% 6%;
+    --secondary:           240 7% 11%;
+    --secondary-foreground: 240 3% 94%;
+    --muted:               240 7% 11%;
+    --muted-foreground:    240 4% 57%;
+    --accent-shadcn:       240 7% 11%;
+    --accent-foreground:   240 3% 94%;
+    --destructive:         0 62% 59%;
+    --destructive-foreground: 240 3% 94%;
+    --border-shadcn:       243 10% 13%;
+    --input-shadcn:        240 8% 6%;
+    --ring:                39 55% 54%;
+    --radius:              0.1875rem;
+  }
+
+  /* ─── Reset & base styles ─── */
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-base text-primary;
+    font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+  }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* ─── Selection ─── */
+  ::selection {
+    background: rgba(201, 168, 76, 0.20);
+    color: var(--text-primary);
+  }
+
+  /* ─── Focus visible — global ─── */
+  :focus-visible {
+    outline: 2px solid rgba(201, 168, 76, 0.5);
+    outline-offset: 2px;
+  }
+
+  /* ─── Headings ─── */
+  h1 { @apply text-2xl font-semibold tracking-tightest leading-tight; }
+  h2 { @apply text-xl font-semibold tracking-tighter leading-tight; }
+  h3 { @apply text-lg font-semibold tracking-snug leading-snug; }
+}
+
+/* ─────────────────────────────────────────────
+   Utility classes built on design tokens
+───────────────────────────────────────────── */
+@layer utilities {
+  /* Mono stat sizes */
+  .stat-lg  { font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; font-size: 32px; font-weight: 700; line-height: 1; }
+  .stat-md  { font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; font-size: 22px; font-weight: 600; line-height: 1; }
+  .stat-sm  { font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; font-size: 14px; font-weight: 500; line-height: 1; }
+  .rule-text { font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace; font-size: 13px; font-weight: 400; line-height: 1.5; }
+
+  /* Section label style */
+  .label-section {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Card surface */
+  .card-surface {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: 3px;
+  }
+
+  /* Accent left-border treatment (next action card, active states) */
+  .accent-border-left {
+    border-left: 2px solid var(--accent);
+    padding-left: calc(1rem - 2px);
+  }
+}
