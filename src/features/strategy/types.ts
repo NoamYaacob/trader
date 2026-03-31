@@ -16,7 +16,7 @@ export interface StrategyIntakeData {
 export interface StrategyRecord {
   id:         string;
   intakeStep: number;
-  status:     "DRAFT" | "SUBMITTED" | "PROCESSING" | "ACTIVE" | "ARCHIVED";
+  status:     "DRAFT" | "SUBMITTED" | "PROCESSING" | "ACTIVE" | "ARCHIVED" | "FAILED";
   intake:     Partial<StrategyIntakeData>;
   createdAt:  Date;
   updatedAt:  Date;

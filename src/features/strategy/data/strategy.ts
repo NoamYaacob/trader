@@ -137,3 +137,13 @@ export async function setStrategyActive(
     data:  { status: "ACTIVE" },
   });
 }
+
+export async function setStrategyFailed(
+  strategyId: string,
+  userId: string
+): Promise<void> {
+  await prisma.strategy.updateMany({
+    where: { id: strategyId, userId },
+    data:  { status: "FAILED" },
+  });
+}

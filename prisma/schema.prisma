@@ -72,6 +72,7 @@ enum StrategyStatus {
   PROCESSING
   ACTIVE
   ARCHIVED
+  FAILED
 }
 
 model Strategy {
