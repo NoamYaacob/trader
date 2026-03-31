@@ -6,6 +6,7 @@ import { NextActionCard } from "@/components/shared/next-action-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { getLatestStrategy } from "@/features/strategy";
 import { getLatestPlaybook } from "@/features/playbook/data/playbook";
+import { getSetupCount } from "@/features/setup";
 import { INTAKE_STEPS } from "@/features/strategy/types";
 import type { IntakeStepNumber } from "@/features/strategy/types";
 
@@ -16,11 +17,14 @@ export default async function DashboardPage() {
   const userId   = session.user.id;
   const strategy = await getLatestStrategy(userId);
 
-  // Load playbook only when it could exist.
+  // Load playbook and setup count only when relevant.
   const playbook =
     strategy?.status === "ACTIVE"
       ? await getLatestPlaybook(strategy.id, userId)
       : null;
+
+  const setupCount =
+    strategy?.status === "ACTIVE" ? await getSetupCount(userId) : 0;
 
   // ── Derive display state ──────────────────────────────────────────────
 
@@ -112,7 +116,7 @@ export default async function DashboardPage() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3">
           <StatCard label="Rules"         value={ruleCount > 0 ? String(ruleCount) : "—"} detail={ruleCount > 0 ? `${checklistCount} in checklist` : undefined} />
-          <StatCard label="Sessions"      value="—" />
+          <StatCard label="Setups"        value={setupCount > 0 ? String(setupCount) : "—"} />
           <StatCard label="Last score"    value="—" detail="no data" />
           <StatCard label="This week"     value="—" detail="0 sessions" />
         </div>
