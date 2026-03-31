@@ -10,19 +10,19 @@ interface Props {
 export function SessionResultsView({ results, trainAgainAction }: Props) {
   const { session, attempts, validAccuracy, invalidAccuracy, bySetup } = results;
 
+  const score = session.score ?? 0;
   const scoreColor =
-    (session.score ?? 0) >= 80 ? "text-valid"
-    : (session.score ?? 0) >= 60 ? "text-warning"
+    score >= 80 ? "text-valid"
+    : score >= 60 ? "text-warning"
     : "text-invalid";
 
   return (
-    <div className="flex flex-col gap-8 max-w-[680px] w-full mx-auto py-10 px-4">
+    <div className="flex flex-col gap-8 max-w-[640px] w-full mx-auto py-10 px-4">
 
-      {/* Score header */}
-      <div className="text-center flex flex-col items-center gap-2">
-        <p className="text-[11px] text-muted font-mono uppercase tracking-wider">Session complete</p>
-        <p className={cn("font-semibold leading-none", scoreColor)} style={{ fontSize: 64 }}>
-          {session.score ?? 0}%
+      {/* Score — number leads, no ceremony label */}
+      <div className="text-center flex flex-col items-center gap-1.5">
+        <p className={cn("font-semibold leading-none tabular-nums", scoreColor)} style={{ fontSize: 64 }}>
+          {score}%
         </p>
         <p className="text-[14px] text-secondary">
           {session.correctCount} of {session.totalCount} correct
@@ -32,8 +32,8 @@ export function SessionResultsView({ results, trainAgainAction }: Props) {
       {/* Accuracy breakdown */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card-surface px-5 py-4">
-          <p className="label-section mb-2">Valid accuracy</p>
-          <p className={cn("text-[28px] font-semibold leading-none", validAccuracy >= 0 ? "text-valid" : "text-muted")}>
+          <p className="text-[11px] text-muted font-mono mb-2">Valid reads</p>
+          <p className={cn("text-[28px] font-semibold leading-none tabular-nums", validAccuracy >= 0 ? "text-valid" : "text-muted")}>
             {validAccuracy >= 0 ? `${validAccuracy}%` : "—"}
           </p>
           <p className="text-[11px] text-muted font-mono mt-1">
@@ -41,8 +41,8 @@ export function SessionResultsView({ results, trainAgainAction }: Props) {
           </p>
         </div>
         <div className="card-surface px-5 py-4">
-          <p className="label-section mb-2">Invalid accuracy</p>
-          <p className={cn("text-[28px] font-semibold leading-none", invalidAccuracy >= 0 ? "text-invalid" : "text-muted")}>
+          <p className="text-[11px] text-muted font-mono mb-2">Invalid reads</p>
+          <p className={cn("text-[28px] font-semibold leading-none tabular-nums", invalidAccuracy >= 0 ? "text-invalid" : "text-muted")}>
             {invalidAccuracy >= 0 ? `${invalidAccuracy}%` : "—"}
           </p>
           <p className="text-[11px] text-muted font-mono mt-1">
@@ -53,95 +53,95 @@ export function SessionResultsView({ results, trainAgainAction }: Props) {
 
       {/* Per-setup breakdown */}
       {bySetup.length > 1 && (
-        <div>
-          <p className="label-section mb-3">By setup</p>
-          <div className="flex flex-col gap-2">
-            {bySetup.map(({ setupName, correct, total }) => {
-              const pct     = Math.round((correct / total) * 100);
-              const barColor = pct >= 80 ? "bg-valid" : pct >= 60 ? "bg-warning" : "bg-invalid";
-              return (
-                <div key={setupName} className="flex items-center gap-3">
-                  <p className="text-[12px] text-secondary font-mono w-40 truncate shrink-0">{setupName}</p>
-                  <div className="flex-1 h-1.5 bg-[var(--bg-inset)] rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full transition-all", barColor)}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted font-mono w-16 text-right shrink-0">
-                    {correct}/{total} · {pct}%
-                  </p>
+        <div className="flex flex-col gap-2">
+          {bySetup.map(({ setupName, correct, total }) => {
+            const pct      = Math.round((correct / total) * 100);
+            const barColor = pct >= 80 ? "bg-valid" : pct >= 60 ? "bg-warning" : "bg-invalid";
+            return (
+              <div key={setupName} className="flex items-center gap-3">
+                <p className="text-[12px] text-secondary font-mono w-40 truncate shrink-0">{setupName}</p>
+                <div className="flex-1 h-1.5 bg-[var(--bg-inset)] rounded-full overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full transition-all", barColor)}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
-              );
-            })}
-          </div>
+                <p className="text-[11px] text-muted font-mono w-16 text-right shrink-0 tabular-nums">
+                  {correct}/{total} · {pct}%
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Example replay */}
-      <div>
-        <p className="label-section mb-3">All examples</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {attempts.map((attempt) => (
-            <div
-              key={attempt.exampleId}
-              className={cn(
-                "rounded border overflow-hidden relative",
-                attempt.isCorrect ? "border-valid/20" : "border-invalid/30"
-              )}
-            >
+      {/* Attempt list — list format, not thumbnail grid */}
+      <div className="flex flex-col gap-1.5">
+        {attempts.map((attempt, i) => (
+          <div
+            key={attempt.exampleId}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded border",
+              attempt.isCorrect ? "border-border" : "border-invalid/25 bg-invalid/[0.03]"
+            )}
+          >
+            {/* Thumbnail */}
+            <div className="w-12 h-9 rounded overflow-hidden shrink-0 bg-[var(--bg-inset)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={attempt.imageUrl}
                 alt={attempt.setupName}
-                className="w-full h-24 object-cover block"
+                className="w-full h-full object-cover block"
               />
-              <div className="px-2 py-1.5 bg-[var(--bg-surface)] flex items-center justify-between gap-1">
-                <p className="text-[10px] text-secondary font-mono truncate">{attempt.setupName}</p>
-                <span
-                  className={cn(
-                    "text-[9px] font-mono font-bold uppercase shrink-0",
-                    attempt.isCorrect ? "text-valid" : "text-invalid"
-                  )}
-                >
-                  {attempt.isCorrect ? "✓" : "✗"}
-                </span>
-              </div>
-              {/* Actual vs user answer */}
-              <div className="px-2 pb-1.5 bg-[var(--bg-surface)]">
-                <p className="text-[9px] text-muted font-mono">
-                  Actual:{" "}
-                  <span className={attempt.actualClassification === "VALID" ? "text-valid" : "text-invalid"}>
-                    {attempt.actualClassification}
-                  </span>
-                  {!attempt.isCorrect && (
-                    <span className="text-muted"> · You: {attempt.userAnswer}</span>
-                  )}
-                </p>
-              </div>
             </div>
-          ))}
-        </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] text-primary font-mono truncate">{attempt.setupName}</p>
+              <p className="text-[10px] text-muted font-mono mt-0.5">
+                <span className={attempt.actualClassification === "VALID" ? "text-valid" : "text-invalid"}>
+                  {attempt.actualClassification}
+                </span>
+                {!attempt.isCorrect && (
+                  <span className="text-muted/70"> · you said {attempt.userAnswer.toLowerCase()}</span>
+                )}
+              </p>
+            </div>
+
+            {/* Index + grade */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] text-muted font-mono tabular-nums">{i + 1}</span>
+              <span
+                className={cn(
+                  "text-[11px] font-mono font-semibold w-6 text-right",
+                  attempt.isCorrect ? "text-valid" : "text-invalid"
+                )}
+              >
+                {attempt.isCorrect ? "✓" : "✗"}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 pt-4 border-t border-border">
-        <Link
-          href="/setups"
-          className="text-[12px] text-muted hover:text-secondary transition-colors font-mono"
-        >
-          ← Setup library
-        </Link>
+      <div className="flex flex-col gap-3 pt-2">
         {trainAgainAction && (
           <form action={trainAgainAction}>
             <button
               type="submit"
-              className="text-[12px] text-accent hover:text-primary transition-colors font-mono border border-accent/30 hover:border-accent/60 rounded px-3 py-1.5 ml-2"
+              className="w-full py-3.5 rounded bg-accent text-[var(--bg-base)] font-semibold text-[14px] tracking-tight hover:opacity-90 transition-opacity"
             >
-              Train again →
+              Train again
             </button>
           </form>
         )}
+        <Link
+          href="/setups"
+          className="text-center text-[12px] text-muted hover:text-secondary transition-colors font-mono"
+        >
+          ← Setup library
+        </Link>
       </div>
 
     </div>

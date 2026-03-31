@@ -34,12 +34,15 @@ export default async function TrainingPage() {
     );
   }
 
-  const setups = await getTrainableSetups(userId);
+  const setups        = await getTrainableSetups(userId);
   const totalExamples = setups.reduce((sum, s) => sum + s.exampleCount, 0);
 
   return (
     <div className="flex flex-col min-h-full">
-      <TopBar title="Training" subtitle={totalExamples > 0 ? `${totalExamples} example${totalExamples !== 1 ? "s" : ""} available` : undefined} />
+      <TopBar
+        title="Training"
+        subtitle={totalExamples > 0 ? `${totalExamples} example${totalExamples !== 1 ? "s" : ""}` : undefined}
+      />
 
       <div className="flex-1 p-8 max-w-[680px] w-full mx-auto">
 
@@ -50,59 +53,44 @@ export default async function TrainingPage() {
             action={{ label: "Go to setup library", href: "/setups" }}
           />
         ) : (
-          <div className="flex flex-col gap-8">
-
-            {/* Intro */}
-            <div>
-              <h2 className="text-[17px] font-semibold text-primary tracking-tight mb-2">
-                Setup recognition drill
-              </h2>
-              <p className="text-[13px] text-secondary leading-relaxed">
-                You&apos;ll be shown example images from your setup library — without labels.
-                Decide: valid setup or not? Each answer is scored against your actual classifications.
-                Your notes are revealed after each answer.
-              </p>
-            </div>
+          <div className="flex flex-col gap-6">
 
             {/* Setup list */}
-            <div>
-              <p className="label-section mb-3">Setups in this session</p>
-              <div className="flex flex-col gap-2">
-                {setups.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between px-4 py-3 card-surface"
-                  >
-                    <div className="flex items-center gap-3">
-                      <p className="text-[13px] text-primary">{s.name}</p>
-                      {s.tags.length > 0 && (
-                        <div className="flex gap-1">
-                          {s.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] font-mono text-accent/70 border border-accent/20 bg-accent/5 rounded px-1.5 py-0.5"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-muted font-mono shrink-0">
-                      {s.exampleCount} example{s.exampleCount !== 1 ? "s" : ""}
-                    </span>
+            <div className="flex flex-col gap-1.5">
+              {setups.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between px-4 py-3 rounded border border-border bg-[var(--bg-surface)]"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <p className="text-[13px] text-primary truncate">{s.name}</p>
+                    {s.tags.length > 0 && (
+                      <div className="flex gap-1 shrink-0">
+                        {s.tags.slice(0, 2).map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] font-mono text-muted border border-border rounded px-1.5 py-0.5"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <span className="text-[11px] text-muted font-mono tabular-nums shrink-0 ml-4">
+                    {s.exampleCount}
+                  </span>
+                </div>
+              ))}
             </div>
 
             {/* Start */}
             <form action={handleStart}>
               <button
                 type="submit"
-                className="w-full py-4 rounded border border-accent/40 bg-accent/10 text-accent font-semibold text-[15px] tracking-tight hover:bg-accent/20 hover:border-accent/60 transition-all"
+                className="w-full py-4 rounded bg-accent text-[var(--bg-base)] font-semibold text-[15px] tracking-tight hover:opacity-90 transition-opacity"
               >
-                Begin session · {totalExamples} question{totalExamples !== 1 ? "s" : ""}
+                Begin · {totalExamples} example{totalExamples !== 1 ? "s" : ""}
               </button>
             </form>
 

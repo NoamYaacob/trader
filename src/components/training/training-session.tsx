@@ -8,11 +8,11 @@ import type { ExampleForTraining, AttemptResult } from "@/features/training/type
 import type { PlaybookRule } from "@/features/playbook/types";
 
 interface Props {
-  sessionId:        string;
-  examples:         ExampleForTraining[];
-  // Pre-filled answers from a prior partial session (resume support).
-  initialAttempts:  Record<string, { userAnswer: "VALID" | "INVALID"; isCorrect: boolean }>;
-  checklistRules:   PlaybookRule[];
+  sessionId:       string;
+  examples:        ExampleForTraining[];
+  // Pre-filled from a prior partial session (resume support).
+  initialAttempts: Record<string, { userAnswer: "VALID" | "INVALID"; isCorrect: boolean }>;
+  checklistRules:  PlaybookRule[];
 }
 
 type Phase = "question" | "feedback";
@@ -30,22 +30,25 @@ export function TrainingSessionView({
   initialAttempts,
   checklistRules,
 }: Props) {
-  // Start at the first unanswered example (resume support).
   const firstUnanswered = examples.findIndex((e) => !(e.id in initialAttempts));
   const [currentIdx, setCurrentIdx] = useState(
     firstUnanswered === -1 ? examples.length - 1 : firstUnanswered
   );
-  const [phase, setPhase]     = useState<Phase>("question");
+  const [phase, setPhase]       = useState<Phase>("question");
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const current  = examples[currentIdx];
-  const answered = currentIdx; // number of questions shown so far (0-indexed)
-  const total    = examples.length;
-  const isLast   = currentIdx === total - 1;
+  const current = examples[currentIdx];
+  const total   = examples.length;
+  const isLast  = currentIdx === total - 1;
 
-  const entryRules = checklistRules.filter((r) => r.category === "ENTRY");
+  // Progress: count of answered examples (advances only when feedback is shown).
+  const answeredCount = currentIdx + (phase === "feedback" ? 1 : 0);
+  const progressPct   = (answeredCount / total) * 100;
+
+  // Entry rules from checklist — shown only on incorrect answers as reference.
+  const entryRules = checklistRules.filter((r) => r.category === "ENTRY").slice(0, 3);
 
   function handleAnswer(answer: "VALID" | "INVALID") {
     if (phase !== "question" || isPending) return;
@@ -54,11 +57,7 @@ export function TrainingSessionView({
     startTransition(async () => {
       const result = await recordAttempt(sessionId, current.id, answer);
       if ("success" in result && !result.success) {
-        if (result.error === "Already answered.") {
-          // Resume edge case: advance past this one.
-          advance();
-          return;
-        }
+        if (result.error === "Already answered.") { advance(); return; }
         setError(result.error);
         return;
       }
@@ -84,7 +83,6 @@ export function TrainingSessionView({
     if (isLast) {
       startTransition(async () => {
         const result = await completeSession(sessionId);
-        // completeSession redirects on success — only reaches here on error.
         if (result && !result.success) setError(result.error);
       });
     } else {
@@ -94,6 +92,7 @@ export function TrainingSessionView({
 
   return (
     <div className="flex flex-col min-h-full">
+
       {/* Minimal training header */}
       <div className="flex items-center justify-between px-6 h-12 border-b border-border shrink-0">
         <a
@@ -105,126 +104,141 @@ export function TrainingSessionView({
         <span className="text-[13px] font-semibold text-primary tracking-tight">
           {current.setupName}
         </span>
-        <span className="text-[11px] text-muted font-mono">
+        <span className="text-[11px] text-muted font-mono tabular-nums">
           {currentIdx + 1} / {total}
         </span>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-0.5 bg-[var(--bg-inset)]">
+      {/* Progress bar — advances when feedback is revealed */}
+      <div className="h-px bg-[var(--bg-inset)] shrink-0">
         <div
-          className="h-full bg-accent transition-all duration-300"
-          style={{ width: `${((currentIdx + (phase === "feedback" ? 1 : 0)) / total) * 100}%` }}
+          className="h-full bg-accent/60 transition-all duration-500 ease-out"
+          style={{ width: `${progressPct}%` }}
         />
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${currentIdx}-${phase}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15, ease: "easeOut" as const }}
-            className="flex flex-col flex-1"
-          >
+      {/* Content — image stays static; only the bottom section animates */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[760px] w-full mx-auto px-4 pt-5 pb-12">
+
+          {/* Setup context — always visible */}
+          <div className="flex items-center gap-3 mb-4 min-h-[22px]">
+            {current.setupTags.map((tag) => (
+              <span
+                key={tag}
+                className="text-[10px] font-mono text-muted border border-border rounded px-1.5 py-0.5"
+              >
+                {tag}
+              </span>
+            ))}
+            {current.entryCondition && (
+              <p className="text-[11px] text-muted leading-snug truncate">
+                {current.entryCondition}
+              </p>
+            )}
+          </div>
+
+          {/* Chart image — static, never animates */}
+          <div className="relative rounded border border-border overflow-hidden bg-[var(--bg-inset)] mb-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={current.imageUrl}
+              alt="Setup example"
+              className="w-full h-auto block"
+              draggable={false}
+            />
+            {/* Annotation markers */}
+            {current.annotationData.markers.map((marker, i) => (
+              <div
+                key={i}
+                style={{
+                  position:  "absolute",
+                  left:      `${marker.x}%`,
+                  top:       `${marker.y}%`,
+                  transform: "translate(-50%, -50%)",
+                }}
+                className="w-6 h-6 rounded-full bg-accent text-[var(--bg-base)] flex items-center justify-center text-[10px] font-bold font-mono pointer-events-none shadow-sm"
+              >
+                {i + 1}
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom section — animates between question and feedback */}
+          <AnimatePresence mode="wait">
             {phase === "question" ? (
-              <QuestionView
-                example={current}
-                onAnswer={handleAnswer}
-                isPending={isPending}
-                error={error}
-              />
+              <motion.div
+                key="question"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.14, ease: "easeOut" as const }}
+              >
+                <QuestionBottom
+                  onAnswer={handleAnswer}
+                  isPending={isPending}
+                  error={error}
+                />
+              </motion.div>
             ) : feedback ? (
-              <FeedbackView
-                example={current}
-                feedback={feedback}
-                checklistRules={entryRules}
-                isLast={isLast}
-                isPending={isPending}
-                onNext={handleNext}
-                error={error}
-              />
+              <motion.div
+                key="feedback"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" as const }}
+              >
+                <FeedbackBottom
+                  feedback={feedback}
+                  checklistRules={entryRules}
+                  isLast={isLast}
+                  isPending={isPending}
+                  onNext={handleNext}
+                  error={error}
+                />
+              </motion.div>
             ) : null}
-          </motion.div>
-        </AnimatePresence>
+          </AnimatePresence>
+
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Question view ──────────────────────────────────────────────────────────
+// ── Question bottom ────────────────────────────────────────────────────────
 
-function QuestionView({
-  example,
+function QuestionBottom({
   onAnswer,
   isPending,
   error,
 }: {
-  example:   ExampleForTraining;
   onAnswer:  (answer: "VALID" | "INVALID") => void;
   isPending: boolean;
   error:     string | null;
 }) {
   return (
-    <div className="flex flex-col gap-0 max-w-[800px] w-full mx-auto px-4 py-6 flex-1">
-      {/* Setup context — small, above the image */}
-      {(example.entryCondition || example.setupTags.length > 0) && (
-        <div className="mb-4 flex flex-col gap-2">
-          {example.setupTags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {example.setupTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="text-[10px] font-mono text-accent/70 border border-accent/20 bg-accent/5 rounded px-1.5 py-0.5"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-          {example.entryCondition && (
-            <p className="text-[11px] text-muted font-mono leading-relaxed">
-              Entry: {example.entryCondition}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Chart image */}
-      <div className="relative rounded border border-border overflow-hidden bg-[var(--bg-inset)] mb-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={example.imageUrl}
-          alt="Setup example"
-          className="w-full h-auto block"
-          draggable={false}
-        />
-        {/* Annotation markers (read-only) */}
-        {example.annotationData.markers.map((marker, i) => (
-          <div
-            key={i}
-            style={{ position: "absolute", left: `${marker.x}%`, top: `${marker.y}%`, transform: "translate(-50%, -50%)" }}
-            className="w-6 h-6 rounded-full bg-accent text-[var(--bg-base)] flex items-center justify-center text-[10px] font-bold font-mono pointer-events-none"
-          >
-            {i + 1}
-          </div>
-        ))}
-      </div>
-
-      {/* Prompt */}
-      <p className="text-[12px] text-muted font-mono text-center mb-5">
+    <div className="pt-6">
+      {/* Central question */}
+      <p
+        className="text-center text-primary font-semibold mb-6 tracking-tight"
+        style={{ fontSize: 15 }}
+      >
         Is this a valid setup?
       </p>
 
-      {/* Decision buttons */}
+      {/* Decision buttons — fill on hover for decisive feel */}
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => onAnswer("VALID")}
           disabled={isPending}
-          className="py-4 rounded border border-valid/30 bg-valid/5 text-valid font-semibold text-[14px] tracking-tight hover:bg-valid/15 hover:border-valid/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            "py-5 rounded border-2 font-semibold text-[15px] tracking-tight transition-all",
+            "border-valid/40 text-valid",
+            "hover:bg-valid hover:border-valid hover:text-[var(--bg-base)]",
+            "disabled:opacity-40 disabled:cursor-not-allowed"
+          )}
         >
           Valid
         </button>
@@ -232,7 +246,12 @@ function QuestionView({
           type="button"
           onClick={() => onAnswer("INVALID")}
           disabled={isPending}
-          className="py-4 rounded border border-invalid/30 bg-invalid/5 text-invalid font-semibold text-[14px] tracking-tight hover:bg-invalid/15 hover:border-invalid/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            "py-5 rounded border-2 font-semibold text-[15px] tracking-tight transition-all",
+            "border-invalid/40 text-invalid",
+            "hover:bg-invalid hover:border-invalid hover:text-[var(--bg-base)]",
+            "disabled:opacity-40 disabled:cursor-not-allowed"
+          )}
         >
           Invalid
         </button>
@@ -245,10 +264,9 @@ function QuestionView({
   );
 }
 
-// ── Feedback view ──────────────────────────────────────────────────────────
+// ── Feedback bottom ────────────────────────────────────────────────────────
 
-function FeedbackView({
-  example,
+function FeedbackBottom({
   feedback,
   checklistRules,
   isLast,
@@ -256,7 +274,6 @@ function FeedbackView({
   onNext,
   error,
 }: {
-  example:        ExampleForTraining;
   feedback:       FeedbackState;
   checklistRules: PlaybookRule[];
   isLast:         boolean;
@@ -264,107 +281,76 @@ function FeedbackView({
   onNext:         () => void;
   error:          string | null;
 }) {
+  const { isCorrect, actualClassification, exampleNotes, userAnswer } = feedback;
+
   return (
-    <div className="flex flex-col gap-0 max-w-[800px] w-full mx-auto px-4 py-6 flex-1">
-      {/* Feedback banner */}
-      <div
-        className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded border mb-5",
-          feedback.isCorrect
-            ? "border-valid/30 bg-valid/8"
-            : "border-invalid/30 bg-invalid/8"
-        )}
-      >
-        <span className={cn("text-[18px]", feedback.isCorrect ? "text-valid" : "text-invalid")}>
-          {feedback.isCorrect ? "✓" : "✗"}
-        </span>
-        <div className="flex-1">
-          <p className={cn("text-[14px] font-semibold", feedback.isCorrect ? "text-valid" : "text-invalid")}>
-            {feedback.isCorrect ? "Correct" : "Incorrect"}
-          </p>
-          <p className="text-[12px] text-secondary">
-            This is a{" "}
-            <span
-              className={cn(
-                "font-semibold",
-                feedback.actualClassification === "VALID" ? "text-valid" : "text-invalid"
-              )}
-            >
-              {feedback.actualClassification.toLowerCase()}
-            </span>{" "}
-            setup.
-            {!feedback.isCorrect && (
-              <span className="text-muted">
-                {" "}You answered {feedback.userAnswer.toLowerCase()}.
-              </span>
+    <div className="pt-5 flex flex-col gap-4">
+
+      {/* Classification reveal — the truth leads, not the grade */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p
+            className={cn(
+              "font-semibold leading-none tracking-tight mb-1.5",
+              actualClassification === "VALID" ? "text-valid" : "text-invalid"
             )}
+            style={{ fontSize: 20 }}
+          >
+            {actualClassification === "VALID" ? "Valid setup." : "Not valid."}
+          </p>
+          <p className="text-[13px] text-secondary">
+            {isCorrect
+              ? "Your read was correct."
+              : `You called this ${userAnswer.toLowerCase()}.`}
           </p>
         </div>
+        <span
+          className={cn(
+            "text-[11px] font-mono shrink-0 mt-0.5",
+            isCorrect ? "text-valid" : "text-invalid/80"
+          )}
+        >
+          {isCorrect ? "✓ right" : "✗ wrong"}
+        </span>
       </div>
 
-      {/* Image with annotations */}
-      <div className="relative rounded border border-border overflow-hidden bg-[var(--bg-inset)] mb-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={example.imageUrl}
-          alt="Setup example"
-          className="w-full h-auto block"
-          draggable={false}
-        />
-        {example.annotationData.markers.map((marker, i) => (
-          <div
-            key={i}
-            style={{ position: "absolute", left: `${marker.x}%`, top: `${marker.y}%`, transform: "translate(-50%, -50%)" }}
-            className="w-6 h-6 rounded-full bg-accent text-[var(--bg-base)] flex items-center justify-center text-[10px] font-bold font-mono pointer-events-none"
-          >
-            {i + 1}
-          </div>
-        ))}
-      </div>
-
-      {/* Example notes — the real learning content */}
-      {feedback.exampleNotes && (
-        <div className="px-3 py-2.5 border-l-2 border-accent/30 bg-accent/5 rounded-r mb-4">
-          <p className="text-[12px] text-secondary leading-relaxed">{feedback.exampleNotes}</p>
+      {/* Example notes — primary learning content */}
+      {exampleNotes && (
+        <div className="border-l-2 border-accent/40 bg-accent/5 rounded-r px-4 py-3">
+          <p className="text-[13px] text-primary leading-relaxed">{exampleNotes}</p>
         </div>
       )}
 
-      {/* Checklist rules as reference */}
-      {checklistRules.length > 0 && (
-        <div className="mb-5">
-          <p className="text-[10px] text-muted font-mono uppercase tracking-wider mb-2">
-            Checklist reference
-          </p>
-          <div className="flex flex-col gap-1.5">
-            {checklistRules.slice(0, 4).map((rule) => (
-              <div key={rule.id} className="flex items-start gap-2">
-                <div className="w-3 h-3 mt-0.5 rounded-sm border border-border-strong shrink-0 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-sm bg-muted" />
-                </div>
-                <p className="text-[11px] text-muted leading-relaxed font-mono">{rule.text}</p>
-              </div>
-            ))}
-          </div>
+      {/* Checklist rules — reference only on incorrect answers */}
+      {!isCorrect && checklistRules.length > 0 && (
+        <div className="flex flex-col gap-1.5 pl-1">
+          {checklistRules.map((rule) => (
+            <p key={rule.id} className="text-[11px] text-muted font-mono leading-relaxed">
+              — {rule.text}
+            </p>
+          ))}
         </div>
       )}
 
       {error && (
-        <p className="text-[11px] text-invalid font-mono mb-3">{error}</p>
+        <p className="text-[11px] text-invalid font-mono">{error}</p>
       )}
 
-      {/* Next button */}
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={isPending}
-        className="w-full py-3 rounded border border-border-strong bg-[var(--bg-elevated)] text-primary font-semibold text-[13px] hover:border-accent/40 hover:bg-[var(--bg-overlay)] transition-all disabled:opacity-50"
-      >
-        {isPending
-          ? "Loading…"
-          : isLast
-          ? "Finish session →"
-          : "Next →"}
-      </button>
+      {/* Continue — right-aligned, not full-width */}
+      <div className="flex justify-end pt-1">
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={isPending}
+          className={cn(
+            "px-6 py-2.5 rounded border border-border-strong text-[13px] font-semibold text-primary",
+            "bg-[var(--bg-elevated)] hover:bg-[var(--bg-overlay)] hover:border-accent/30 transition-all",
+            "disabled:opacity-40"
+          )}
+        >
+          {isPending ? "Loading…" : isLast ? "See results →" : "Continue →"}
+        </button>
+      </div>
     </div>
   );
 }
