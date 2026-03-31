@@ -11,11 +11,17 @@ datasource db {
 // Auth — NextAuth required models
 // ─────────────────────────────────────────────
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id             String    @id @default(cuid())
   email          String    @unique
   name           String?
   hashedPassword String?
+  role           UserRole  @default(USER)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
