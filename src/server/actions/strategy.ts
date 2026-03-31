@@ -9,6 +9,7 @@ import {
   updateStrategyStep,
   submitStrategy,
 } from "@/features/strategy/data/strategy";
+import { generatePlaybook } from "@/server/actions/playbook";
 import type { IntakeStepNumber } from "@/features/strategy/types";
 
 // Ensure the current request is authenticated and return the user id.
@@ -56,6 +57,9 @@ export async function submitIntake(
 
   const result = await submitStrategy(strategyId, userId, validation.data);
   if (!result.success) return result;
+
+  // Trigger AI generation. Errors are caught inside — the redirect always runs.
+  await generatePlaybook(strategyId, userId);
 
   redirect("/playbook");
 }

@@ -1,30 +1,124 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { TopBar } from "@/components/layout/top-bar";
 import { StatCard } from "@/components/shared/stat-card";
 import { NextActionCard } from "@/components/shared/next-action-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { getLatestStrategy } from "@/features/strategy";
+import { getLatestPlaybook } from "@/features/playbook/data/playbook";
+import { INTAKE_STEPS } from "@/features/strategy/types";
+import type { IntakeStepNumber } from "@/features/strategy/types";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/sign-in");
+
+  const userId   = session.user.id;
+  const strategy = await getLatestStrategy(userId);
+
+  // Load playbook only when it could exist.
+  const playbook =
+    strategy?.status === "ACTIVE"
+      ? await getLatestPlaybook(strategy.id, userId)
+      : null;
+
+  // ── Derive display state ──────────────────────────────────────────────
+
+  let subtitle = "No playbook confirmed";
+  let nextActionCard: React.ReactNode;
+
+  if (!strategy || strategy.status === "DRAFT") {
+    const stepNum = (strategy?.intakeStep ?? 1) as IntakeStepNumber;
+    const isNew   = !strategy || strategy.intakeStep <= 1;
+
+    subtitle        = "No playbook yet";
+    nextActionCard  = isNew ? (
+      <NextActionCard
+        title="Start with your strategy intake."
+        description="Describe your strategy in plain language. We'll formalize it into a playbook you can train against."
+        cta="Begin intake"
+        href="/onboarding"
+      />
+    ) : (
+      <NextActionCard
+        title={`Continue your intake — step ${stepNum} of 7.`}
+        description={`You stopped at: "${INTAKE_STEPS[stepNum]?.title ?? ""}". Pick up where you left off.`}
+        cta="Continue intake"
+        href="/onboarding"
+      />
+    );
+  } else if (
+    strategy.status === "SUBMITTED" ||
+    strategy.status === "PROCESSING"
+  ) {
+    subtitle = "Generating playbook…";
+    nextActionCard = (
+      <div className="card-surface accent-border-left bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)] flex items-center gap-6 px-6 py-5">
+        <div className="w-5 h-5 rounded-full border-2 border-accent border-t-transparent animate-spin shrink-0" />
+        <div>
+          <p className="text-[15px] font-semibold text-primary tracking-tight">
+            Building your playbook
+          </p>
+          <p className="text-[13px] text-secondary leading-snug mt-1">
+            Your intake has been submitted. Rules are being generated from your strategy description.
+          </p>
+        </div>
+        <a href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
+          View status →
+        </a>
+      </div>
+    );
+  } else if (strategy.status === "ACTIVE" && playbook?.status === "DRAFT") {
+    subtitle = `v${playbook.version} · awaiting review`;
+    nextActionCard = (
+      <NextActionCard
+        title="Your playbook is ready for review."
+        description={`${playbook.rules.length} rules generated from your strategy intake. Review, edit, and confirm each rule before training.`}
+        cta="Review playbook"
+        href="/playbook"
+      />
+    );
+  } else if (strategy.status === "ACTIVE" && playbook?.status === "CONFIRMED") {
+    const checklistN = playbook.rules.filter((r) => r.inChecklist).length;
+    subtitle = `v${playbook.version} · ${playbook.rules.length} rules confirmed`;
+    nextActionCard = (
+      <div className="card-surface accent-border-left bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)] flex items-center gap-6 px-6 py-5">
+        <div>
+          <p className="text-[15px] font-semibold text-primary tracking-tight">
+            Playbook confirmed.
+          </p>
+          <p className="text-[13px] text-secondary leading-snug mt-1">
+            {playbook.rules.length} rules active · {checklistN} in pre-trade checklist.
+            {" "}Training sessions are available once you have setups.
+          </p>
+        </div>
+        <a href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
+          View playbook →
+        </a>
+      </div>
+    );
+  }
+
+  // Playbook stats (shown when confirmed).
+  const ruleCount       = playbook?.rules.length ?? 0;
+  const checklistCount  = playbook?.rules.filter((r) => r.inChecklist).length ?? 0;
+
   return (
     <div className="flex flex-col min-h-full">
-      <TopBar title="Dashboard" subtitle="No playbook confirmed" />
+      <TopBar title="Dashboard" subtitle={subtitle} />
 
       <div className="flex-1 p-8 space-y-5 max-w-[1060px] w-full mx-auto">
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Setups"        value="—" />
+          <StatCard label="Rules"         value={ruleCount > 0 ? String(ruleCount) : "—"} detail={ruleCount > 0 ? `${checklistCount} in checklist` : undefined} />
           <StatCard label="Sessions"      value="—" />
           <StatCard label="Last score"    value="—" detail="no data" />
           <StatCard label="This week"     value="—" detail="0 sessions" />
         </div>
 
         {/* Next action */}
-        <NextActionCard
-          title="Start with your strategy intake."
-          description="Describe your strategy in plain language. We'll formalize it into a playbook you can train against."
-          cta="Begin intake"
-          href="/onboarding"
-        />
+        {nextActionCard}
 
         {/* Activity columns */}
         <div className="grid grid-cols-2 gap-4">

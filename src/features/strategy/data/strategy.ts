@@ -94,3 +94,46 @@ export async function submitStrategy(
     return { success: false, error: "Failed to submit strategy. Please try again." };
   }
 }
+
+// Returns the most recent strategy for a user, regardless of status.
+// Used for dashboard state and onboarding redirect logic.
+export async function getLatestStrategy(
+  userId: string
+): Promise<StrategyRecord | null> {
+  const row = await prisma.strategy.findFirst({
+    where:   { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  return row ? toStrategyRecord(row) : null;
+}
+
+// Returns the user's ACTIVE strategy (if any).
+export async function getActiveStrategy(
+  userId: string
+): Promise<StrategyRecord | null> {
+  const row = await prisma.strategy.findFirst({
+    where:   { userId, status: "ACTIVE" },
+    orderBy: { createdAt: "desc" },
+  });
+  return row ? toStrategyRecord(row) : null;
+}
+
+export async function setStrategyProcessing(
+  strategyId: string,
+  userId: string
+): Promise<void> {
+  await prisma.strategy.updateMany({
+    where: { id: strategyId, userId },
+    data:  { status: "PROCESSING" },
+  });
+}
+
+export async function setStrategyActive(
+  strategyId: string,
+  userId: string
+): Promise<void> {
+  await prisma.strategy.updateMany({
+    where: { id: strategyId, userId },
+    data:  { status: "ACTIVE" },
+  });
+}

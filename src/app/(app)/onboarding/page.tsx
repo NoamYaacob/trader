@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import {
-  getDraftStrategy,
-  createDraftStrategy,
-} from "@/features/strategy/data/strategy";
+import { getDraftStrategy, getLatestStrategy } from "@/features/strategy";
+import { createDraftStrategy } from "@/features/strategy/data/strategy";
 import { IntakeForm } from "@/components/onboarding/intake-form";
 
 export default async function OnboardingPage() {
@@ -12,13 +10,13 @@ export default async function OnboardingPage() {
 
   const userId = session.user.id;
 
-  // If the user already has a submitted/active strategy, send them to the app.
-  const existing = await getDraftStrategy(userId);
-  if (existing?.status === "SUBMITTED" || existing?.status === "ACTIVE") {
+  // If the user has any non-draft strategy, send them to /playbook.
+  const latest = await getLatestStrategy(userId);
+  if (latest && latest.status !== "DRAFT") {
     redirect("/playbook");
   }
 
-  const strategy = existing ?? (await createDraftStrategy(userId));
+  const strategy = latest ?? (await createDraftStrategy(userId));
 
   return (
     <div className="min-h-full flex flex-col">
