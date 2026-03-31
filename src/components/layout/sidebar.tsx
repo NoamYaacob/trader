@@ -8,16 +8,16 @@ const NAV_SECTIONS = [
   {
     label: "Platform",
     items: [
-      { label: "Dashboard",      href: "/dashboard" },
-      { label: "Playbook",       href: "/playbook" },
-      { label: "Setup Library",  href: "/setups" },
+      { label: "Dashboard",     href: "/dashboard" },
+      { label: "Playbook",      href: "/playbook" },
+      { label: "Setup Library", href: "/setups" },
     ],
   },
   {
     label: "Workflow",
     items: [
-      { label: "Train",          href: "/train" },
-      { label: "Trade Review",   href: "/review" },
+      { label: "Train",         href: "/train" },
+      { label: "Trade Review",  href: "/review" },
     ],
   },
 ] as const;
@@ -27,18 +27,22 @@ export function Sidebar() {
 
   return (
     <aside className="w-[240px] shrink-0 flex flex-col h-screen sticky top-0 border-r border-border bg-base">
+
       {/* Wordmark */}
-      <div className="h-14 flex items-center px-4 shrink-0">
-        <span className="text-[15px] font-bold text-primary tracking-tight">
-          Trader
-        </span>
+      <div className="h-14 flex items-center px-4 shrink-0 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded-sm bg-[var(--accent-dim)] border border-[rgba(201,168,76,0.25)] flex items-center justify-center shrink-0">
+            <span className="rule-text text-accent" style={{ fontSize: 10, fontWeight: 700 }}>T</span>
+          </div>
+          <span className="text-[14px] font-semibold text-primary tracking-tight">Trader</span>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label} className="mb-4">
-            <p className="label-section px-4 py-1.5">{section.label}</p>
+      <nav className="flex-1 overflow-y-auto pt-4 pb-2">
+        {NAV_SECTIONS.map((section, si) => (
+          <div key={section.label} className={cn("mb-1", si > 0 && "mt-4 pt-4 border-t border-border")}>
+            <p className="label-section px-4 mb-1">{section.label}</p>
             {section.items.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
@@ -46,9 +50,9 @@ export function Sidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center h-[34px] mx-1 px-3 rounded text-[13px] transition-colors duration-150",
+                    "flex items-center h-8 mx-2 px-2.5 rounded-sm text-[13px] transition-colors duration-150",
                     active
-                      ? "text-primary bg-[var(--accent-dim)] border-l-2 border-accent pl-[10px]"
+                      ? "text-primary bg-[var(--accent-dim)] border-l-2 border-accent"
                       : "text-secondary hover:text-primary hover:bg-elevated"
                   )}
                 >
@@ -60,15 +64,17 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom user area placeholder */}
-      <div className="shrink-0 h-14 border-t border-border flex items-center px-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-sm bg-elevated border border-border-strong flex items-center justify-center">
-            <span className="text-[10px] font-mono text-muted">T</span>
-          </div>
-          <span className="text-[12px] text-secondary">Trader</span>
+      {/* User area */}
+      <div className="shrink-0 h-14 border-t border-border flex items-center px-4 gap-2.5">
+        <div className="w-6 h-6 rounded-sm bg-elevated border border-border-strong flex items-center justify-center shrink-0">
+          <span className="rule-text text-secondary" style={{ fontSize: 10 }}>—</span>
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[12px] text-secondary truncate leading-none">Account</span>
+          <span className="text-[10px] text-muted truncate leading-none mt-0.5">Phase 1 preview</span>
         </div>
       </div>
+
     </aside>
   );
 }

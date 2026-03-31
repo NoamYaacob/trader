@@ -22,25 +22,21 @@ export function NextActionCard({
     <div
       className={cn(
         "card-surface accent-border-left",
-        "bg-[linear-gradient(to_right,var(--accent-dim),transparent)]",
-        "flex items-center justify-between gap-6 p-5",
+        "bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)]",
+        "flex items-center justify-between gap-8 px-6 py-5",
         className
       )}
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5 min-w-0">
         <p className="text-[15px] font-semibold text-primary tracking-tight">{title}</p>
-        <p className="text-[13px] text-secondary leading-relaxed">{description}</p>
+        <p className="text-[13px] text-secondary leading-snug">{description}</p>
       </div>
       {href ? (
         <a href={href} className="shrink-0">
-          <Button variant="primary" size="default">
-            {cta}
-          </Button>
+          <Button variant="primary">{cta}</Button>
         </a>
       ) : (
-        <Button variant="primary" size="default" onClick={onClick} className="shrink-0">
-          {cta}
-        </Button>
+        <Button variant="primary" onClick={onClick} className="shrink-0">{cta}</Button>
       )}
     </div>
   );

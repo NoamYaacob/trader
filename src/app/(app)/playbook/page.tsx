@@ -4,22 +4,22 @@ import { EmptyState } from "@/components/shared/empty-state";
 
 export default function PlaybookPage() {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-full">
       <TopBar
         title="Playbook"
-        subtitle="No confirmed playbook."
+        subtitle="v0 · not confirmed"
         actions={
           <Button variant="secondary" size="sm" disabled>
-            Edit Rules
+            Edit rules
           </Button>
         }
       />
 
-      <div className="flex-1 p-8 max-w-[960px] w-full mx-auto">
+      <div className="flex-1 p-8 max-w-[900px] w-full mx-auto">
         <EmptyState
-          title="No confirmed playbook."
-          description="Complete your strategy intake to generate your playbook. You will be able to review and confirm each rule before it becomes part of your playbook."
-          action={{ label: "Complete strategy intake", href: "/onboarding" }}
+          title="No playbook confirmed."
+          description="Complete the strategy intake to generate your playbook. You'll review and confirm each rule before it's locked as your source of truth."
+          action={{ label: "Begin strategy intake", href: "/onboarding" }}
         />
       </div>
     </div>
