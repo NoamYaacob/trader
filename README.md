@@ -4,12 +4,12 @@ A premium AI-powered strategy training platform for traders. Traders define thei
 
 ---
 
-## Local development setup
+## Local setup
 
 ### Prerequisites
 
 - Node.js 20+
-- PostgreSQL 15+ running locally (or via Docker)
+- PostgreSQL 15+ (local install or Docker — see quickstart below)
 - npm
 
 ### 1. Install dependencies
@@ -20,29 +20,28 @@ npm install
 
 ### 2. Configure environment
 
-A pre-filled `.env.local` is created for you by default with a generated `AUTH_SECRET` and safe defaults. You only need to update one value:
+Copy the example env file and fill in the two required values:
 
 ```bash
-# Open .env.local and replace the DATABASE_URL placeholder:
-DATABASE_URL="postgresql://postgres:password@localhost:5432/trader"
+cp .env.local.example .env.local
 ```
 
-Everything else works out of the box for local development:
-- `AUTH_SECRET` is already generated
-- `AUTH_URL` defaults to `http://localhost:3000`
-- AI defaults to the built-in mock provider (no API key required)
+Open `.env.local` and set:
 
-See `.env.local.example` for all available options.
+```
+DATABASE_URL="postgresql://postgres:password@localhost:5432/trader"
+AUTH_SECRET="<run: openssl rand -base64 32>"
+```
+
+Everything else is pre-set for local development (mock AI, localhost URL).
 
 ### 3. Set up the database
 
-Push the schema and seed the admin user in one command:
+First-time setup — applies all migrations and seeds the admin user:
 
 ```bash
 npm run db:setup
 ```
-
-This runs `prisma db push` (creates all tables) then `prisma db seed` (creates the admin user).
 
 ### 4. Start the dev server
 
@@ -56,43 +55,52 @@ Visit [http://localhost:3000](http://localhost:3000).
 
 ## Admin access
 
-A seeded admin account is created by `db:setup`:
+Seeded by `db:setup` / `db:reset`:
 
-| Field    | Value                  |
-|----------|------------------------|
-| Email    | `admin@local.test`     |
-| Password | `Admin123!ChangeMe`    |
-
-Admin panel is at [http://localhost:3000/admin](http://localhost:3000/admin).
+| Field    | Value               |
+|----------|---------------------|
+| Email    | `admin@local.test`  |
+| Password | `Admin123!ChangeMe` |
+| URL      | `/admin`            |
 
 ---
 
 ## Database commands
 
-| Command            | Description                                        |
-|--------------------|----------------------------------------------------|
-| `npm run db:push`  | Sync schema to the database (no data loss)         |
-| `npm run db:seed`  | Run the seed script (idempotent — safe to re-run)  |
-| `npm run db:setup` | `db:push` + `db:seed` — full first-time setup      |
-| `npm run db:reset` | Drop all data, re-push schema, re-seed             |
-| `npm run db:studio`| Open Prisma Studio in the browser                  |
+| Command             | What it does                                                    |
+|---------------------|-----------------------------------------------------------------|
+| `npm run db:migrate` | `prisma migrate dev` — apply pending migrations, create new ones if schema changed (interactive, dev only) |
+| `npm run db:deploy`  | `prisma migrate deploy` — apply pending migrations non-interactively (CI / production) |
+| `npm run db:seed`    | Run the seed script (idempotent — safe to re-run)              |
+| `npm run db:setup`   | `db:deploy` + `db:seed` — full first-time setup                |
+| `npm run db:reset`   | Drop all data, re-apply all migrations, re-seed (destructive)  |
+| `npm run db:studio`  | Open Prisma Studio in the browser                              |
+
+### When to use which command
+
+- **First-time local setup:** `npm run db:setup`
+- **After pulling schema changes:** `npm run db:migrate`
+- **Full local reset (wipe all data):** `npm run db:reset`
+- **CI / staging deploy:** `npm run db:deploy && npm run db:seed`
 
 ---
 
 ## Optional: real AI provider
 
-The app works fully with the mock AI provider (no key required). To enable Claude for real playbook generation, add to `.env.local`:
+The app works fully with the built-in mock provider (no key required). To enable Claude for real playbook generation, add to `.env.local`:
 
 ```
 AI_PROVIDER="anthropic"
 ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-The model defaults to `claude-haiku-4-5-20251001`. Override with `ANTHROPIC_MODEL`.
+Default model: `claude-haiku-4-5-20251001`. Override with `ANTHROPIC_MODEL`.
 
 ---
 
-## Quick Docker Postgres (if you don't have Postgres locally)
+## Quick Docker Postgres
+
+If you don't have Postgres installed locally:
 
 ```bash
 docker run --name trader-db \
@@ -102,4 +110,4 @@ docker run --name trader-db \
   -d postgres:15
 ```
 
-Then set `DATABASE_URL="postgresql://postgres:password@localhost:5432/trader"` in `.env.local`.
+Then use `DATABASE_URL="postgresql://postgres:password@localhost:5432/trader"` in `.env.local`.
