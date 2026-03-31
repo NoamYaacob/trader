@@ -44,6 +44,25 @@ export async function saveIntakeStep(
   return updateStrategyStep(strategyId, userId, nextStep, validation.data);
 }
 
+// Called from the intake edit flow on the final step.
+// Saves step 7 data to the ACTIVE strategy and redirects to the regeneration
+// confirmation page. Does NOT mark the strategy as submitted or trigger generation —
+// the user chooses whether to regenerate on the next screen.
+export async function finishIntakeEdit(
+  strategyId: string,
+  data: Record<string, string>
+): Promise<{ success: false; error: string } | never> {
+  const userId = await requireUserId();
+
+  const validation = validateIntakeStep(7, data);
+  if (!validation.success) return { success: false, error: validation.error };
+
+  const result = await updateStrategyStep(strategyId, userId, 7, validation.data);
+  if (!result.success) return result;
+
+  redirect("/strategy/edit/regenerate");
+}
+
 // Called on the final step. Persists the last data, marks strategy SUBMITTED,
 // and redirects to /playbook.
 export async function submitIntake(

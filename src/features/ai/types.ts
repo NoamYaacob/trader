@@ -12,6 +12,9 @@ export interface AIPlaybookInput {
   riskRules:              string;
   whatMakesValid:         string;
   whatMakesInvalid:       string;
+  // Optional revision instructions — present when the user edited intake before regenerating.
+  // A real provider uses these as extra context; the mock appends them to the summary.
+  revisionNotes?:         string;
 }
 
 export interface AIRuleDraft {

@@ -27,12 +27,13 @@ async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
-// Triggered from submitIntake. Calls the AI adapter, persists the playbook,
-// and advances the strategy status to ACTIVE.
+// Triggered from submitIntake and regeneration flows. Calls the AI adapter,
+// persists the playbook, and advances the strategy status to ACTIVE.
 // Errors are caught and logged — the caller's redirect is never blocked.
 export async function generatePlaybook(
   strategyId: string,
-  userId: string
+  userId: string,
+  revisionNotes?: string
 ): Promise<void> {
   try {
     // Load the full strategy data for the AI adapter.
@@ -53,6 +54,7 @@ export async function generatePlaybook(
       riskRules:              strategy.riskRules              ?? "",
       whatMakesValid:         strategy.whatMakesValid         ?? "",
       whatMakesInvalid:       strategy.whatMakesInvalid       ?? "",
+      revisionNotes:          revisionNotes?.trim() || undefined,
     });
 
     await createPlaybookWithRules(strategyId, userId, draft.summary, draft.rules);
@@ -90,8 +92,10 @@ export async function confirmPlaybook(
 // the same strategy intake. The new version starts as DRAFT for the user to review.
 // Old training sessions and trade reviews reference their original playbookId and
 // are unaffected — archived playbooks are never deleted.
+// Optional revisionNotes are passed to the AI adapter as extra context.
 export async function regeneratePlaybook(
-  playbookId: string
+  playbookId: string,
+  revisionNotes?: string
 ): Promise<{ success: false; error: string } | never> {
   const userId = await requireUserId();
 
@@ -109,8 +113,7 @@ export async function regeneratePlaybook(
   if (!archiveResult.success) return archiveResult;
 
   // Generate new version using the existing AI adapter path.
-  // Re-uses the same generatePlaybook logic from initial intake processing.
-  await generatePlaybook(playbook.strategyId, userId);
+  await generatePlaybook(playbook.strategyId, userId, revisionNotes);
 
   redirect("/playbook");
 }

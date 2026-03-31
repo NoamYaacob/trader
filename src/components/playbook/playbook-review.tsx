@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { RuleGroup } from "./rule-group";
-import { confirmPlaybook, regeneratePlaybook } from "@/server/actions/playbook";
+import { confirmPlaybook } from "@/server/actions/playbook";
 import { groupRulesByCategory } from "@/features/playbook";
 import { CATEGORY_ORDER } from "@/features/playbook/types";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,8 @@ interface PlaybookReviewProps {
 export function PlaybookReview({ playbook: initial, archived = false }: PlaybookReviewProps) {
   const [rules, setRules]               = useState<PlaybookRule[]>(initial.rules);
   const [confirmed, setConfirmed]       = useState(initial.status === "CONFIRMED");
-  const [showRegen, setShowRegen]       = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [isPending, startTransition]    = useTransition();
-  const [isRegening, startRegenTrans]   = useTransition();
 
   const grouped    = groupRulesByCategory(rules);
   const checklistN = rules.filter((r) => r.inChecklist).length;
@@ -59,19 +57,6 @@ export function PlaybookReview({ playbook: initial, archived = false }: Playbook
     startTransition(async () => {
       const result = await confirmPlaybook(initial.id);
       if (result && !result.success) setError(result.error);
-    });
-  }
-
-  // ── Regenerate ─────────────────────────────────────────────────────────────
-
-  function handleRegenConfirm() {
-    setError(null);
-    startRegenTrans(async () => {
-      const result = await regeneratePlaybook(initial.id);
-      if (result && !result.success) {
-        setError(result.error);
-        setShowRegen(false);
-      }
     });
   }
 
@@ -163,51 +148,7 @@ export function PlaybookReview({ playbook: initial, archived = false }: Playbook
         ))}
       </div>
 
-      {/* Regenerate confirmation panel — inline, shown only when triggered */}
-      <AnimatePresence>
-        {showRegen && (
-          <motion.div
-            key="regen-confirm"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.18, ease: "easeOut" as const }}
-            className="rounded border border-border-strong bg-[var(--bg-elevated)] px-5 py-4 flex flex-col gap-4"
-          >
-            <div>
-              <p className="text-[14px] font-semibold text-primary mb-1.5">
-                Regenerate from strategy?
-              </p>
-              <p className="text-[13px] text-secondary leading-relaxed">
-                This will archive <span className="font-mono text-primary">v{initial.version}</span> and
-                create a new draft from your current strategy intake.
-                Your existing training sessions and trade reviews will not be affected —
-                they keep their original playbook reference.
-              </p>
-            </div>
-            {error && <p className="text-[11px] text-invalid font-mono">{error}</p>}
-            <div className="flex items-center gap-3">
-              <Button
-                variant="primary"
-                onClick={handleRegenConfirm}
-                disabled={isRegening}
-              >
-                {isRegening ? "Regenerating…" : "Yes, regenerate →"}
-              </Button>
-              <button
-                type="button"
-                onClick={() => { setShowRegen(false); setError(null); }}
-                disabled={isRegening}
-                className="text-[13px] text-muted hover:text-secondary transition-colors font-mono"
-              >
-                Cancel
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom bar — confirm bar for DRAFT, regenerate trigger for CONFIRMED */}
+      {/* Bottom bar — confirm bar for DRAFT */}
       {!archived && !confirmed && (
         <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-[var(--color-surface)]/95 backdrop-blur-sm">
           <div className="max-w-[680px] mx-auto px-4 py-4 flex items-center justify-between gap-4">
@@ -233,16 +174,15 @@ export function PlaybookReview({ playbook: initial, archived = false }: Playbook
         </div>
       )}
 
-      {/* Regenerate trigger — shown only on CONFIRMED (not archived, not draft) */}
-      {!archived && confirmed && !showRegen && (
+      {/* Edit strategy intake — shown only on CONFIRMED (not archived, not draft) */}
+      {!archived && confirmed && (
         <div className="border-t border-border pt-6">
-          <button
-            type="button"
-            onClick={() => setShowRegen(true)}
+          <a
+            href="/strategy/edit"
             className="text-[12px] text-muted hover:text-secondary transition-colors font-mono"
           >
-            Regenerate playbook from strategy →
-          </button>
+            Edit strategy intake →
+          </a>
         </div>
       )}
 

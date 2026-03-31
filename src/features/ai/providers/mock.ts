@@ -25,11 +25,16 @@ class MockAIProvider implements AIAdapter {
     const instrument = input.instrument || "this instrument";
     const timeframe  = input.timeframe  || "this timeframe";
 
+    const revisionClause = input.revisionNotes?.trim()
+      ? ` Regenerated with revision notes: "${input.revisionNotes.trim()}"`
+      : "";
+
     const summary =
       `A ${instrument} strategy traded on the ${timeframe} timeframe. ` +
       (input.overview.trim()
         ? input.overview.trim().split(/\.\s+/)[0] + "."
-        : "Rules generated from your intake responses.");
+        : "Rules generated from your intake responses.") +
+      revisionClause;
 
     const rules: AIRuleDraft[] = [];
 
