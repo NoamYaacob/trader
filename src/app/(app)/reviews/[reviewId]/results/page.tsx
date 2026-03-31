@@ -2,15 +2,16 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { TopBar } from "@/components/layout/top-bar";
 import { ReviewSummaryView } from "@/components/reviews/review-summary";
+import { ReviewDetailActions } from "@/components/reviews/review-detail-actions";
 import {
   getTradeReview,
   getReviewAdherence,
   buildReviewResults,
 } from "@/features/reviews";
 import { startReview } from "@/server/actions/reviews";
+import { prisma } from "@/db/client";
 import type { TradeFormInput } from "@/features/reviews/types";
 
-// Starts a fresh review for the same instrument/direction as a quick "review again" action.
 async function handleNewReview(
   instrument: string,
   direction:  "LONG" | "SHORT"
@@ -44,12 +45,18 @@ export default async function ReviewResultsPage({ params }: Props) {
     redirect(`/reviews/${reviewId}`);
   }
 
-  const adherence = await getReviewAdherence(reviewId);
-  const results   = buildReviewResults(review, adherence);
+  const [adherence, setups] = await Promise.all([
+    getReviewAdherence(reviewId),
+    prisma.setup.findMany({
+      where:   { userId },
+      orderBy: { name: "asc" },
+      select:  { id: true, name: true },
+    }),
+  ]);
 
+  const results    = buildReviewResults(review, adherence);
   const scoreLabel = `${results.adherenceScore}% adherence`;
 
-  // Bind instrument+direction into the server action for the "New review" shortcut.
   const instrument = review.instrument;
   const direction  = review.direction;
 
@@ -63,6 +70,9 @@ export default async function ReviewResultsPage({ params }: Props) {
       <TopBar title="Review results" subtitle={scoreLabel} />
       <div className="flex-1 overflow-y-auto">
         <ReviewSummaryView results={results} newReviewAction={newReviewAction} />
+        <div className="max-w-[640px] w-full mx-auto px-4 pb-12">
+          <ReviewDetailActions review={review} setups={setups} />
+        </div>
       </div>
     </div>
   );

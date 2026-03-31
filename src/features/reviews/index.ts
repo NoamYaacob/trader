@@ -1,5 +1,5 @@
 // Public API for the reviews feature.
-export { getTradeReview, getReviewAdherence, getChecklistRules, getReviewSummaries } from "./data/review";
+export { getTradeReview, getReviewAdherence, getChecklistRules, getReviewSummaries, updateReviewDetails, deleteReview } from "./data/review";
 export { buildReviewResults, calculateAdherenceScore } from "./domain/scoring";
 export type {
   TradeReviewRecord,

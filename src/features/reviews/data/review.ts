@@ -205,3 +205,43 @@ export async function completeTradeReview(
 
   return { adherenceScore: score };
 }
+
+// Updates editable trade metadata on a completed review.
+// Adherence marks are intentionally not editable — they form the historical record.
+export async function updateReviewDetails(
+  reviewId: string,
+  userId: string,
+  input: Pick<TradeFormInput, "instrument" | "direction" | "tradeDate" | "notes">
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const count = await prisma.tradeReview.updateMany({
+      where: { id: reviewId, userId },
+      data: {
+        instrument: input.instrument.trim(),
+        direction:  input.direction,
+        tradeDate:  new Date(input.tradeDate),
+        notes:      input.notes?.trim() || null,
+      },
+    });
+    if (count.count === 0) return { success: false, error: "Review not found." };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to update review." };
+  }
+}
+
+// Hard-deletes a review (cascades to RuleAdherence rows via DB constraint).
+export async function deleteReview(
+  reviewId: string,
+  userId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const count = await prisma.tradeReview.deleteMany({
+      where: { id: reviewId, userId },
+    });
+    if (count.count === 0) return { success: false, error: "Review not found." };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to delete review." };
+  }
+}

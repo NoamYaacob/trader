@@ -59,3 +59,15 @@ export interface SetupForTraining {
   tags:         string[];
   exampleCount: number;
 }
+
+// Compact summary shown in the training history list.
+export interface TrainingSessionSummary {
+  id:              string;
+  score:           number | null;
+  totalCount:      number;
+  correctCount:    number;
+  status:          "IN_PROGRESS" | "COMPLETED";
+  playbookVersion: number | null;
+  createdAt:       Date;
+  completedAt:     Date | null;
+}

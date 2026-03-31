@@ -6,6 +6,7 @@ export type {
   AttemptSummary,
   SessionResults,
   SetupForTraining,
+  TrainingSessionSummary,
 } from "./types";
 export {
   getTrainableSetups,
@@ -13,5 +14,6 @@ export {
   getTrainingSession,
   getSessionAttempts,
   getAttemptSummaries,
+  getTrainingSessions,
 } from "./data/session";
 export { buildSessionResults } from "./domain/scoring";

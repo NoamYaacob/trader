@@ -159,6 +159,30 @@ export async function getAttemptSummaries(
   }));
 }
 
+// Returns all training sessions for a user, newest first.
+// Used for the history section on the training landing page.
+export async function getTrainingSessions(
+  userId: string
+): Promise<import("../types").TrainingSessionSummary[]> {
+  const rows = await prisma.trainingSession.findMany({
+    where:   { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      playbook: { select: { version: true } },
+    },
+  });
+  return rows.map((row) => ({
+    id:              row.id,
+    score:           row.score,
+    totalCount:      row.totalCount,
+    correctCount:    row.correctCount,
+    status:          row.completedAt ? ("COMPLETED" as const) : ("IN_PROGRESS" as const),
+    playbookVersion: row.playbook.version,
+    createdAt:       row.createdAt,
+    completedAt:     row.completedAt,
+  }));
+}
+
 // ── Mutations ──────────────────────────────────────────────────────────────
 
 // Creates a new training session with the given shuffled example order.

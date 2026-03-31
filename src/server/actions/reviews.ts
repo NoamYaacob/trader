@@ -8,6 +8,8 @@ import {
   getChecklistRules,
   completeTradeReview,
   getTradeReview,
+  updateReviewDetails as dbUpdateReviewDetails,
+  deleteReview as dbDeleteReview,
 } from "@/features/reviews/data/review";
 import type { TradeFormInput, RuleAdherenceInput } from "@/features/reviews/types";
 
@@ -66,4 +68,26 @@ export async function submitAdherence(
   if ("error" in result) return { success: false, error: result.error };
 
   redirect(`/reviews/${reviewId}/results`);
+}
+
+// Updates trade metadata (instrument, direction, tradeDate, notes) on any review.
+// Adherence marks are not editable.
+export async function updateReview(
+  reviewId: string,
+  input: Pick<TradeFormInput, "instrument" | "direction" | "tradeDate" | "notes">
+): Promise<{ success: true } | { success: false; error: string }> {
+  const userId = await requireUserId();
+  if (!input.instrument.trim()) return { success: false, error: "Instrument is required." };
+  if (!input.tradeDate)         return { success: false, error: "Trade date is required." };
+  return dbUpdateReviewDetails(reviewId, userId, input);
+}
+
+// Hard-deletes a review and redirects to the reviews list.
+export async function deleteReview(
+  reviewId: string
+): Promise<{ success: false; error: string } | never> {
+  const userId = await requireUserId();
+  const result = await dbDeleteReview(reviewId, userId);
+  if (!result.success) return result;
+  redirect("/reviews");
 }
