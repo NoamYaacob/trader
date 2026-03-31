@@ -734,4 +734,88 @@ These shadcn components should not appear in V1 without full custom replacement:
 
 ---
 
-*Part 2 complete. Part 3 (Screen Guidance — all 7 screens) pending approval.*
+## Part 3 — Screen Blueprints
+
+---
+
+### Landing Page
+
+- **Purpose:** Convert a cold visitor. Name the problem. State the promise. One CTA.
+- **Top:** Full-viewport hero. Display headline (36px, −0.03em). Sub-headline one sentence. One primary button: "Start building your playbook."
+- **Middle:** Three problem statements in a row (plain text, no icons). Then three numbered "how it works" steps. Then three feature cards: Playbook / Setup Library / Training — name + one sentence each.
+- **Bottom:** Single CTA block. One line. Same button repeated.
+- **Primary CTA:** "Start building your playbook."
+- **Dominant visual:** The headline. The page exists to carry it to the CTA. No hero image, no illustration.
+
+---
+
+### Strategy Intake
+
+- **Purpose:** Collect the trader's strategy in a structured, respectful, focused flow.
+- **Top:** Step indicator — 7 numbered dots, active step highlighted in accent. Auto-save label ("Saved") in text-muted.
+- **Middle:** One step at a time. 1–2 fields per step. Large textarea (bg-inset, JetBrains Mono, 160px min). Field label + hint text always visible. Generous vertical space.
+- **Bottom:** "Back" (ghost) left, "Next" (primary) right. "Submit Strategy" on step 7.
+- **Primary CTA:** "Next" through steps 1–6. "Submit Strategy" on step 7.
+- **Dominant visual:** The textarea. The writing surface is the product.
+
+---
+
+### Playbook
+
+- **Purpose:** Display the trader's formalized strategy as a reference document they own and return to.
+- **Top:** Page header — playbook name (H1), version badge, confirmed date. "Edit Rules" (secondary), "Revise Playbook" (ghost).
+- **Middle (left ~65%):** Summary card. Rules grouped by category — ENTRY / EXIT / INVALIDATION / RISK / MINDSET. Each rule: JetBrains Mono text, category badge, source tag (AI / Trader).
+- **Middle (right ~35%, sticky):** Pre-trade checklist. All `in_checklist` rules as checkboxes. Visual-only on this page — not saved here.
+- **Bottom:** Rule count caption. Version history link (ghost).
+- **Primary CTA:** "Edit Rules."
+- **Dominant visual:** The rule list. Dense, organized, monospace.
+
+---
+
+### Setup Library
+
+- **Purpose:** Visual reference library of named setups with annotated examples.
+- **Top:** "Setup Library" (H1) + setup count (JetBrains Mono). "+ Add Setup" (primary). Text filter input.
+- **Middle:** 3-column card grid. Each card: 16:9 thumbnail or dark placeholder, setup name (H3), 1-line description, example count badge, tags.
+- **Bottom (setup detail page):** Three-column condition block — ENTRY / EXIT / INVALIDATION. Example gallery with annotation overlays and VALID / INVALID classification badges. "+ Add Example" (primary).
+- **Primary CTA:** "+ Add Setup" on library. "+ Add Example" on detail.
+- **Dominant visual:** Example images with annotation overlays and classification badges.
+
+---
+
+### Training Session
+
+- **Purpose:** Fast, focused test of the trader against their own playbook. One prompt at a time.
+- **Top:** Session type label. Progress: "3 of 8." Exit button (ghost, right). Thin accent-color progress bar beneath.
+- **Middle (setup recognition):** Large example image (max 420px tall). Question text below. Two large 48px answer buttons side by side: VALID / INVALID. Optional LOW / MED / HIGH confidence row. Submit (disabled until answer selected).
+- **Middle (rule recall):** Question text (H2, centered). Large textarea (JetBrains Mono). Submit.
+- **After submission:** CORRECT / INCORRECT in status color (JetBrains Mono). Expected answer. Rule reference. 1–2 sentence feedback. "Next →" (primary).
+- **Bottom (results page):** Score — large JetBrains Mono "7 / 10." Per-prompt list. Weak areas block. "Train Again" / "View Playbook" / "Dashboard."
+- **Primary CTA:** Submit → Next → (repeat).
+- **Dominant visual:** For recognition: the image. For recall: the question text. Nothing competes.
+
+---
+
+### Trade Review
+
+- **Purpose:** Post-trade self-assessment. Measure rule adherence. No P&L.
+- **Top:** "Log Trade Review" (H1). Sub-label: "Measure your execution against your playbook." Setup name input. Trade date input.
+- **Middle:** "Pre-trade Checklist" (H3). One row per checklist rule: rule text (JetBrains Mono) + three-button toggle: FOLLOWED / N/A / BROKE. Status colors on selection.
+- **Bottom:** Live adherence score — "8 / 10" in JetBrains Mono (32px), updates as toggles change. Optional notes textarea. "Save Review" (primary).
+- **Primary CTA:** "Save Review."
+- **Dominant visual:** The rule checklist + the live adherence score counter.
+
+---
+
+### Dashboard / Home
+
+- **Purpose:** Show the trader where they stand. Direct them to one clear next action.
+- **Top:** Playbook status label ("Playbook v3, confirmed." — caption, text-secondary). Four equal stat cards: Setups / Sessions / Last Session Score / Days Trained This Week. All values in JetBrains Mono.
+- **Middle:** Next action card (full width). 2px left accent border. accent-dim background tint. Context-aware: one heading, one sentence, one primary CTA button. Below: two-column activity — left: last 3 sessions (date / type / score). Right: last 3 trade reviews (setup name / adherence / date).
+- **Bottom:** Setup preview strip — 4 compact setup cards (thumbnail + name). "View all setups →" ghost link.
+- **Primary CTA:** Whatever is in the next action card. Context-driven.
+- **Dominant visual:** The next action card. Larger, distinct background treatment — the eye lands here within one second.
+
+---
+
+*Part 3 complete. All 7 V1 screen blueprints defined. Awaiting approval.*
