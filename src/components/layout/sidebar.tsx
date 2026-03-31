@@ -16,8 +16,8 @@ const NAV_SECTIONS = [
   {
     label: "Workflow",
     items: [
-      { label: "Train",         href: "/train" },
-      { label: "Trade Review",  href: "/review" },
+      { label: "Training",      href: "/training" },
+      { label: "Trade Review",  href: "/reviews" },
     ],
   },
 ] as const;

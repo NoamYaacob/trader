@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { TopBar } from "@/components/layout/top-bar";
 import { StatCard } from "@/components/shared/stat-card";
@@ -8,8 +9,10 @@ import { getLatestStrategy } from "@/features/strategy";
 import { getLatestPlaybook } from "@/features/playbook/data/playbook";
 import { getSetupCount } from "@/features/setup";
 import { getTrainableSetups } from "@/features/training";
+import { getReviewSummaries } from "@/features/reviews";
 import { INTAKE_STEPS } from "@/features/strategy/types";
 import type { IntakeStepNumber } from "@/features/strategy/types";
+import { cn } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -30,6 +33,11 @@ export default async function DashboardPage() {
   const trainableSetups =
     strategy?.status === "ACTIVE" && playbook?.status === "CONFIRMED"
       ? await getTrainableSetups(userId)
+      : [];
+
+  const recentReviews =
+    strategy?.status === "ACTIVE" && playbook?.status === "CONFIRMED"
+      ? await getReviewSummaries(userId, 5)
       : [];
 
   // ── Derive display state ──────────────────────────────────────────────
@@ -123,6 +131,15 @@ export default async function DashboardPage() {
   const ruleCount      = playbook?.rules.length ?? 0;
   const checklistCount = playbook?.rules.filter((r) => r.inChecklist).length ?? 0;
 
+  // Review stats.
+  const completedReviews = recentReviews.filter((r) => r.status === "COMPLETE");
+  const lastScore        = completedReviews[0]?.adherenceScore ?? null;
+  const thisWeek         = completedReviews.filter((r) => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    return r.completedAt ? r.createdAt >= cutoff : false;
+  }).length;
+
   return (
     <div className="flex flex-col min-h-full">
       <TopBar title="Dashboard" subtitle={subtitle} />
@@ -133,8 +150,8 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-4 gap-3">
           <StatCard label="Rules"         value={ruleCount > 0 ? String(ruleCount) : "—"} detail={ruleCount > 0 ? `${checklistCount} in checklist` : undefined} />
           <StatCard label="Setups"        value={setupCount > 0 ? String(setupCount) : "—"} />
-          <StatCard label="Last score"    value="—" detail="no data" />
-          <StatCard label="This week"     value="—" detail="0 sessions" />
+          <StatCard label="Last review"   value={lastScore !== null ? `${lastScore}%` : "—"} detail={lastScore !== null ? "adherence" : "no reviews"} />
+          <StatCard label="This week"     value={thisWeek > 0 ? String(thisWeek) : "—"} detail={thisWeek > 0 ? `review${thisWeek !== 1 ? "s" : ""}` : "0 reviews"} />
         </div>
 
         {/* Next action */}
@@ -151,11 +168,48 @@ export default async function DashboardPage() {
           </div>
 
           <div className="card-surface p-5 flex flex-col gap-3">
-            <p className="label-section">Recent Reviews</p>
-            <EmptyState
-              title="No reviews logged."
-              description="After a trade, log it here to measure how closely you followed your rules."
-            />
+            <div className="flex items-center justify-between">
+              <p className="label-section">Recent Reviews</p>
+              <Link href="/reviews" className="text-[11px] text-secondary hover:text-primary transition-colors font-mono">
+                View all →
+              </Link>
+            </div>
+            {completedReviews.length === 0 ? (
+              <EmptyState
+                title="No reviews logged."
+                description="After a trade, log it here to measure how closely you followed your rules."
+                action={{ label: "Log a review", href: "/reviews/new" }}
+              />
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {completedReviews.slice(0, 4).map((r) => {
+                  const date = r.tradeDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  const sc   = r.adherenceScore;
+                  const col  = sc !== null && sc >= 80 ? "text-valid" : sc !== null && sc >= 60 ? "text-warning" : "text-invalid";
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/reviews/${r.id}/results`}
+                      className="flex items-center gap-3 px-3 py-2 rounded border border-border hover:border-border-strong hover:bg-[var(--bg-elevated)] transition-colors"
+                    >
+                      <span className={cn(
+                        "text-[10px] font-mono font-semibold px-1 py-px rounded border shrink-0",
+                        r.direction === "LONG"
+                          ? "border-valid/30 text-valid"
+                          : "border-invalid/30 text-invalid"
+                      )}>
+                        {r.direction}
+                      </span>
+                      <p className="text-[12px] text-primary flex-1 truncate">{r.instrument}</p>
+                      <p className="text-[11px] text-muted font-mono shrink-0">{date}</p>
+                      <p className={cn("text-[12px] font-semibold font-mono tabular-nums w-8 text-right shrink-0", col)}>
+                        {sc}%
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
