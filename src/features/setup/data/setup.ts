@@ -25,6 +25,16 @@ function parseAnnotationData(json: unknown): AnnotationData {
   };
 }
 
+// Rewrites a Vercel Blob private-store URL to the local proxy path so that
+// <img src> can load it without needing an Authorization header.
+// Local /uploads/ paths and already-proxied paths are returned unchanged.
+function resolveImageUrl(raw: string): string {
+  if (raw.includes(".blob.vercel-storage.com")) {
+    return `/api/blob?url=${encodeURIComponent(raw)}`;
+  }
+  return raw;
+}
+
 // ── Type mappers ───────────────────────────────────────────────────────────
 
 function toExampleRecord(row: {
@@ -39,7 +49,7 @@ function toExampleRecord(row: {
   return {
     id:             row.id,
     setupId:        row.setupId,
-    imageUrl:       row.imageUrl,
+    imageUrl:       resolveImageUrl(row.imageUrl),
     classification: row.classification as SetupExampleRecord["classification"],
     notes:          row.notes,
     annotations:    parseAnnotationData(row.annotationData),
