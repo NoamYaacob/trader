@@ -4,9 +4,11 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       // Vercel Blob storage — used for uploaded setup example images in production.
+      // Covers both private stores (*.blob.vercel-storage.com) and
+      // public stores (*.public.blob.vercel-storage.com).
       {
         protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com",
+        hostname: "*.blob.vercel-storage.com",
       },
     ],
   },

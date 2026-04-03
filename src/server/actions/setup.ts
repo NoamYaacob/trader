@@ -35,7 +35,7 @@ async function saveUploadedFile(file: File, userId: string): Promise<string> {
     const filename = `examples/${userId}/${crypto.randomUUID()}${ext}`;
     console.log("[saveUploadedFile] uploading to Vercel Blob:", filename);
     const blob = await put(filename, buffer, {
-      access:      "public",
+      access:      "private",
       contentType: file.type,
     });
     console.log("[saveUploadedFile] blob upload ok:", blob.url);
