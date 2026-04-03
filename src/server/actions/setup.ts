@@ -33,11 +33,18 @@ async function saveUploadedFile(file: File, userId: string): Promise<string> {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const { put } = await import("@vercel/blob");
     const filename = `examples/${userId}/${crypto.randomUUID()}${ext}`;
+    console.log("[saveUploadedFile] uploading to Vercel Blob:", filename);
     const blob = await put(filename, buffer, {
       access:      "public",
       contentType: file.type,
     });
+    console.log("[saveUploadedFile] blob upload ok:", blob.url);
     return blob.url;
+  }
+
+  // No BLOB_READ_WRITE_TOKEN — in production this is a misconfiguration.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("BLOB_READ_WRITE_TOKEN is not set. Configure Vercel Blob storage.");
   }
 
   // Local dev fallback — public/uploads/ directory.
@@ -158,8 +165,10 @@ export async function uploadExample(
   let imageUrl: string;
   try {
     imageUrl = await saveUploadedFile(file, userId);
-  } catch {
-    return { success: false, error: "Failed to save image. Please try again." };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[uploadExample] saveUploadedFile failed:", detail);
+    return { success: false, error: `Upload failed: ${detail}` };
   }
 
   const result = await dbCreateExample(setupId, userId, {
