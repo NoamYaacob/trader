@@ -66,7 +66,7 @@ export function AnnotationEditor({
         ref={containerRef}
         onClick={handleImageClick}
         className={cn(
-          "relative select-none overflow-hidden rounded border border-border",
+          "relative select-none overflow-hidden rounded border border-border max-w-[680px] mx-auto",
           editing && "cursor-crosshair ring-1 ring-accent/40"
         )}
       >
@@ -74,7 +74,7 @@ export function AnnotationEditor({
         <img
           src={imageUrl}
           alt="Setup example"
-          className="w-full h-auto block"
+          className="w-full h-auto block max-h-[420px] object-contain"
           draggable={false}
         />
 
