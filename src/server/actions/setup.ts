@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { writeFile, unlink, mkdir } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import { join, extname } from "path";
 import { auth } from "@/lib/auth";
 import { setupSchema, parseTags } from "@/features/setup/domain/validation";
@@ -23,32 +23,45 @@ async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
-// Saves an uploaded image to public/uploads/[userId]/ and returns its URL path.
-async function saveUploadedFile(
-  file: File,
-  userId: string
-): Promise<string> {
-  const dir = join(process.cwd(), "public", "uploads", userId);
-  await mkdir(dir, { recursive: true });
-
-  const ext      = extname(file.name).toLowerCase() || ".jpg";
-  const filename = `${crypto.randomUUID()}${ext}`;
-  const fullPath = join(dir, filename);
-
+// Saves an uploaded image.
+// Production (BLOB_READ_WRITE_TOKEN set): uploads to Vercel Blob, returns https URL.
+// Local dev (no token): writes to public/uploads/[userId]/, returns /uploads/... path.
+async function saveUploadedFile(file: File, userId: string): Promise<string> {
+  const ext    = extname(file.name).toLowerCase() || ".jpg";
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(fullPath, buffer);
 
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const { put } = await import("@vercel/blob");
+    const filename = `examples/${userId}/${crypto.randomUUID()}${ext}`;
+    const blob = await put(filename, buffer, {
+      access:      "public",
+      contentType: file.type,
+    });
+    return blob.url;
+  }
+
+  // Local dev fallback — public/uploads/ directory.
+  const dir      = join(process.cwd(), "public", "uploads", userId);
+  await mkdir(dir, { recursive: true });
+  const filename = `${crypto.randomUUID()}${ext}`;
+  await writeFile(join(dir, filename), buffer);
   return `/uploads/${userId}/${filename}`;
 }
 
-// Deletes an uploaded image from the filesystem. Errors are silently ignored
-// (the DB record is already gone).
+// Deletes an uploaded image.
+// Detects Vercel Blob URLs (https://) vs local paths (/uploads/...).
 async function deleteUploadedFile(imageUrl: string): Promise<void> {
   try {
-    const relative = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
-    await unlink(join(process.cwd(), "public", relative));
+    if (imageUrl.startsWith("http")) {
+      const { del } = await import("@vercel/blob");
+      await del(imageUrl);
+    } else {
+      const { unlink } = await import("fs/promises");
+      const relative = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
+      await unlink(join(process.cwd(), "public", relative));
+    }
   } catch {
-    // File may have already been deleted or not exist — not a fatal error.
+    // File may already be deleted or not exist — not a fatal error.
   }
 }
 
