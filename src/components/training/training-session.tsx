@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { recordAttempt, completeSession } from "@/server/actions/training";
@@ -95,12 +96,12 @@ export function TrainingSessionView({
 
       {/* Minimal training header */}
       <div className="flex items-center justify-between px-6 h-12 border-b border-border shrink-0">
-        <a
+        <Link
           href="/training"
           className="text-[11px] text-muted hover:text-secondary transition-colors font-mono"
         >
           ← Exit
-        </a>
+        </Link>
         <span className="text-[13px] font-semibold text-primary tracking-tight">
           {current.setupName}
         </span>

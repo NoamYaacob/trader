@@ -81,9 +81,9 @@ export default async function DashboardPage() {
             Your intake has been submitted. Rules are being generated from your strategy description.
           </p>
         </div>
-        <a href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
+        <Link href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
           View status →
-        </a>
+        </Link>
       </div>
     );
   } else if (strategy.status === "ACTIVE" && playbook?.status === "DRAFT") {
@@ -120,9 +120,9 @@ export default async function DashboardPage() {
             {" "}Add annotated examples to your setups to unlock training sessions.
           </p>
         </div>
-        <a href="/setups" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
+        <Link href="/setups" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
           Go to setups →
-        </a>
+        </Link>
       </div>
     );
   }
@@ -217,12 +217,12 @@ export default async function DashboardPage() {
         <div className="card-surface p-5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="label-section">Your Setups</p>
-            <a
+            <Link
               href="/setups"
               className="text-[11px] text-secondary hover:text-primary transition-colors font-mono"
             >
               View all →
-            </a>
+            </Link>
           </div>
           <EmptyState
             title="No setups yet."

@@ -54,7 +54,7 @@ export function SetupForm({ setup }: SetupFormProps) {
       <div>
         <Label htmlFor="name">Setup name</Label>
         <p className="text-[11px] text-secondary mb-2">
-          A short, recognizable name for this pattern. E.g. "Break and retest", "Opening drive".
+          A short, recognizable name for this pattern. E.g. &ldquo;Break and retest&rdquo;, &ldquo;Opening drive&rdquo;.
         </p>
         <Input
           id="name"
@@ -69,7 +69,7 @@ export function SetupForm({ setup }: SetupFormProps) {
       <div>
         <Label htmlFor="tags">Tags</Label>
         <p className="text-[11px] text-secondary mb-2">
-          Comma-separated. Used to filter your library. E.g. "trend, morning, high-rvol".
+          Comma-separated. Used to filter your library. E.g. &ldquo;trend, morning, high-rvol&rdquo;.
         </p>
         <Input
           id="tags"
