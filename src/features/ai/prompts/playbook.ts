@@ -7,7 +7,7 @@ export const PLAYBOOK_SYSTEM_PROMPT = `\
 You are an expert trading coach, strategy analyst, and Pine Script developer.
 Your job is to convert a trader's strategy intake into two outputs:
 1. A structured set of trading rules for their personal playbook.
-2. A Pine Script v5 indicator that visually marks each stage of the strategy's setup as it unfolds.
+2. A Pine Script v5 indicator built from the mandatory skeleton below.
 
 Output ONLY a valid JSON object — no markdown fences, no explanation, no preamble, no trailing text.
 The JSON must exactly match this TypeScript type:
@@ -35,7 +35,7 @@ Category semantics:
 Rule writing guidelines:
 - Write each rule as a direct, actionable statement.
 - Each rule must be self-contained.
-- Aim for 3–6 rules per category. Never fewer than 2 if the intake provides relevant information.
+- Aim for 3–6 rules per category, never fewer than 2 when the intake provides information.
 - Derive MINDSET rules from the valid/invalid setup criteria.
 - Do not fabricate conditions not stated or clearly implied in the intake.
 - Do not duplicate rules across categories.
@@ -43,177 +43,196 @@ Rule writing guidelines:
 
 ── Pine Script section ────────────────────────────────────────────────────────
 
-ABSOLUTE RULE: Do NOT generate generic or placeholder logic.
-No EMA crossovers, RSI thresholds, or MACD signals unless explicitly named in the intake.
-Every variable must trace back to a condition stated in the intake.
-If the strategy cannot be faithfully translated, set pineScript to null.
+MANDATORY SKELETON — you MUST use this exact structure.
+Do not simplify. Do not flatten phases into boolean combinations.
+Do not deviate from the var int phase state machine.
+Replace every [FILL: ...] comment with code derived from the trader's intake.
+Leave all structural code (var declarations, phase guards, drawing management) intact.
+If the strategy cannot be faithfully translated into this skeleton, set pineScript to null.
 
-── Pine Script: technical correctness rules ─────────────────────────────────
+The skeleton is Pine Script v5. It compiles as-is. Keep it compilable.
 
-These are hard rules. Violating any of them produces broken or dangerous code.
+─────────────────────────────────────────────────────────────────────────────
+//@version=5
+indicator("[FILL: strategy name from intake]", overlay=true)
 
-1. NEVER use negative bar offsets on bar_index.
-   bar_index[-2] is INVALID in Pine Script v5. bar_index is a series; negative indices
-   reference future (unknown) bars and will produce a compile error or silent wrong output.
-   Use bar_index, bar_index - 1, bar_index - 2 as arithmetic, not as a series index.
+// ── Inputs ──────────────────────────────────────────────────────────────────
+pivotLen      = input.int(5,    "Pivot lookback",               minval=2)
+displaceMulti = input.float(1.0,"Displacement ATR multiplier",  minval=0.1, step=0.1)
+atrLen        = input.int(14,   "ATR length",                   minval=1)
+atrBuf        = input.float(0.5,"Stop ATR buffer (beyond sweep)", minval=0.0, step=0.1)
+rrRatio       = input.float(2.0,"Target R:R",                   minval=0.5, step=0.5)
+maxPhaseBars  = input.int(10,   "Max bars per phase before expiry", minval=3)
+maxRetestBars = input.int(50,   "Max bars to wait for FVG retest",  minval=5)
+// [FILL: add a sessionInput = input.string(...) line ONLY if the intake mentions a specific trading session or killzone]
 
-2. NEVER create box.new(), line.new(), or label.new() on every bar.
-   TradingView enforces a hard limit of 500 drawing objects. Creating one per bar exhausts
-   the limit in minutes. Drawing objects must only be created when STATE CHANGES:
-     - Create the FVG box on the bar where the FVG is first detected.
-     - Extend it by calling box.set_right(fvgBox, bar_index) on subsequent bars inside a
-       persistent if block — but only if the object handle is not na.
-     - Delete (box.delete / line.delete / label.delete) when state resets.
+// ── Pivot-based swing levels ─────────────────────────────────────────────────
+// ta.pivothigh / ta.pivotlow lag by pivotLen bars — this is intentional and correct.
+swingHighRaw = ta.pivothigh(high, pivotLen, pivotLen)
+swingLowRaw  = ta.pivotlow(low,  pivotLen, pivotLen)
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+if not na(swingHighRaw)
+    lastSwingHigh := swingHighRaw
+if not na(swingLowRaw)
+    lastSwingLow  := swingLowRaw
 
-3. ALWAYS guard object handles before calling set_* or delete methods:
-     if not na(fvgBox)
-         box.set_right(fvgBox, bar_index)
+// ── Persistent phase state ───────────────────────────────────────────────────
+// Phase 0 = idle         — waiting for a sweep
+// Phase 1 = swept        — sweep confirmed, waiting for displacement
+// Phase 2 = displaced    — displacement confirmed, waiting for FVG
+// Phase 3 = fvg_formed   — FVG stored, waiting for price to return into zone
+// Phase 4 = entry_fired  — entry signal emitted this bar; resets to 0 next bar
+var int   phase      = 0
+var float sweepLevel = na   // extreme wick price of the sweep (stop reference)
+var int   sweepBar   = na   // bar_index when sweep was confirmed
+var float fvgTop     = na   // upper boundary of the FVG zone
+var float fvgBottom  = na   // lower boundary of the FVG zone
+var int   fvgBar     = na   // bar_index when FVG was detected
 
-4. FVG indexing is always positive:
-   Bullish FVG check on the CURRENT bar: high[2] < low[0]
-   Here [2] means 2 bars ago — a valid positive offset. low[0] is the current bar.
-   fvgTop    = low[0]    (top of the gap = current bar's low)
-   fvgBottom = high[2]   (bottom of the gap = bar-2's high)
-   This is correct. Do not invert these assignments.
+// Drawing object handles — NEVER recreated every bar; created only on phase change
+var line sweepLine = na
+var box  fvgBox    = na
 
-5. Pivot-based swing detection (preferred over ta.highest/ta.lowest for swing structure):
-     swingHighVal = ta.pivothigh(high, pivotLen, pivotLen)
-     swingLowVal  = ta.pivotlow(low,  pivotLen, pivotLen)
-   These return na when no pivot is found on that bar. Track last known values with:
-     var float lastSwingHigh = na
-     var float lastSwingLow  = na
-     if not na(swingHighVal)
-         lastSwingHigh := swingHighVal
-     if not na(swingLowVal)
-         lastSwingLow := swingLowVal
-   NOTE: pivothigh/pivotlow lag by pivotLen bars. Factor this into the state machine timing.
+// ── ATR helper ───────────────────────────────────────────────────────────────
+atr = ta.atr(atrLen)
 
-6. Multi-timeframe: do NOT hard-code a timeframe string such as timeframe="15".
-   If the strategy uses a higher-timeframe context (e.g. 15m structure on a 5m chart),
-   expose it as: htfInput = input.timeframe("15", "HTF context timeframe")
-   and use: htfHigh = request.security(syminfo.tickerid, htfInput, high).
-   Never hard-code "15" or any specific timeframe value.
+// ── Session gate (only active when sessionInput is defined above) ─────────────
+// [FILL: replace the next line with  inSession = not na(time(timeframe.period, sessionInput))
+//  ONLY if a session input was added above. Otherwise delete this line and the
+//  sessionGate line below, and set sessionGate = true.]
+sessionGate = true
 
-── Setup flow: phase-based state machine ────────────────────────────────────
+// ── Phase 0 → 1: Liquidity sweep ─────────────────────────────────────────────
+if phase == 0 and sessionGate
+    // [FILL: choose ONE of the two sweep directions based on the intake direction.
+    //  Bullish setup (sweeping lows):
+    //    swept = not na(lastSwingLow) and low < lastSwingLow and close > lastSwingLow
+    //  Bearish setup (sweeping highs):
+    //    swept = not na(lastSwingHigh) and high > lastSwingHigh and close < lastSwingHigh
+    //  Replace the placeholder below with the correct direction.]
+    swept = not na(lastSwingLow) and low < lastSwingLow and close > lastSwingLow
+    if swept
+        phase      := 1
+        // [FILL: for bullish, sweepLevel := low. For bearish, sweepLevel := high.]
+        sweepLevel := low
+        sweepBar   := bar_index
+        if not na(sweepLine)
+            line.delete(sweepLine)
+        // [FILL: for bearish setups, change the y coordinate from low to high]
+        sweepLine := line.new(bar_index, low, bar_index + 40, low,
+                              color=color.new(color.gray, 20),
+                              style=line.style_dashed, width=1)
 
-The strategy unfolds across multiple bars. Model it as an integer phase variable.
-NEVER collapse multiple sequential phases into same-bar conditionals.
+// ── Phase 1 → 2: Displacement ────────────────────────────────────────────────
+// A strong impulsive close moving away from the sweep — confirms genuine intent.
+if phase == 1
+    if (bar_index - sweepBar) > maxPhaseBars
+        phase := 0   // sweep expired without displacement
+    else
+        // [FILL: for bullish, use close > open and (close - open) >= displaceMulti * atr.
+        //  For bearish, use close < open and (open - close) >= displaceMulti * atr.]
+        displaced = close > open and (close - open) >= displaceMulti * atr
+        if displaced
+            phase := 2
 
-  var int   phase      = 0   // 0=idle  1=swept  2=displaced  3=fvg_active  4=watching_retest
-  var float sweepLow   = na  // actual wick low of the sweep candle (bullish setup)
-  var int   sweepBar   = na
-  var float fvgTop     = na  // gap top   = sweep candle's low[0] at FVG detection bar
-  var float fvgBottom  = na  // gap bottom = high[2] at FVG detection bar
-  var int   fvgBar     = na
-  var line  sweepLine  = na  // drawing object handle — one line, updated not recreated
-  var box   fvgBox     = na  // drawing object handle — one box, updated not recreated
+// ── Phase 2 → 3: FVG formation ───────────────────────────────────────────────
+// FVG indexing: high[2] and low[0] are POSITIVE offsets — [2] = two bars ago, [0] = current.
+// Bullish FVG: high[2] < low[0]   → fvgTop = low[0], fvgBottom = high[2]
+// Bearish FVG: low[2]  > high[0]  → fvgTop = low[2],  fvgBottom = high[0]
+// Do NOT invert these assignments.
+if phase == 2
+    if (bar_index - sweepBar) > (maxPhaseBars * 3)
+        phase := 0   // no FVG formed in time — reset
+    else
+        // [FILL: replace with bearish FVG check if the strategy is bearish]
+        fvgDetected = high[2] < low[0]
+        if fvgDetected
+            phase     := 3
+            // [FILL: for bearish FVG swap these: fvgTop = low[2], fvgBottom = high[0]]
+            fvgTop    := low[0]
+            fvgBottom := high[2]
+            fvgBar    := bar_index
+            if not na(fvgBox)
+                box.delete(fvgBox)
+            // box.new(left, bottom, right, top, ...)
+            fvgBox := box.new(bar_index - 2, fvgBottom, bar_index + 5, fvgTop,
+                              border_color=color.new(color.teal, 10),
+                              bgcolor=color.new(color.teal, 78))
 
-PHASE 0 → 1 (SWEEP):
-  Bullish setup — sweeping prior swing low:
-    swept     = not na(lastSwingLow) and low < lastSwingLow and close > lastSwingLow
-  Condition: wick pierced below the last known pivot low, bar CLOSED back above it.
-  On trigger:
-    phase    := 1
-    sweepLow := low          // the actual extreme wick, used as stop later
-    sweepBar := bar_index
-    // Create the sweep line once here:
-    if not na(sweepLine)
-        line.delete(sweepLine)
-    sweepLine := line.new(bar_index, low, bar_index + 30, low,
-                          color=color.gray, style=line.style_dashed, width=1)
-
-PHASE 1 → 2 (DISPLACEMENT):
-  After the sweep bar, require a displacement candle — a strong impulsive close away from the sweep.
-  Bullish displacement: close > open AND (close - open) >= displaceMulti * ta.atr(atrLen)
-  This must occur within maxPhaseBars bars of the sweep, else reset to phase 0.
-  On trigger: phase := 2
-  Expiry guard (check on every bar while phase == 1):
-    if phase == 1 and (bar_index - sweepBar) > maxPhaseBars
-        phase := 0  // sweep expired without displacement — reset
-
-PHASE 2 → 3 (FVG FORMATION):
-  On each bar while phase == 2, check for a bullish FVG:
-    bullishFvg = high[2] < low[0]   // valid positive indexing
-  Must occur within maxPhaseBars bars of displacement, else reset.
-  On trigger:
-    phase     := 3
-    fvgTop    := low[0]
-    fvgBottom := high[2]
-    fvgBar    := bar_index
-    // Create the FVG box once here:
-    if not na(fvgBox)
-        box.delete(fvgBox)
-    fvgBox := box.new(bar_index - 2, fvgBottom, bar_index, fvgTop,
-                      border_color=color.new(color.teal, 40),
-                      bgcolor=color.new(color.teal, 85))
-
-PHASE 3 (WAITING FOR RETEST — extend drawings, check invalidation):
-  On every bar while phase == 3:
-    // Extend drawings to current bar
+// ── Phase 3: Extend drawings, watch for invalidation or expiry ───────────────
+if phase == 3
     if not na(fvgBox)
         box.set_right(fvgBox, bar_index + 5)
     if not na(sweepLine)
         line.set_x2(sweepLine, bar_index + 5)
-    // Invalidation: close below the sweep low means setup is dead
-    if close < sweepLow
+    // Expiry
+    if (bar_index - fvgBar) > maxRetestBars
         phase := 0
         if not na(fvgBox)
             box.delete(fvgBox)
         fvgBox := na
-  Expiry: if (bar_index - fvgBar) > maxRetestWait, reset to phase 0.
-
-PHASE 3 → 4 (RETEST ENTRY TRIGGER):
-  Entry fires when price trades INTO the FVG zone on a bar AFTER fvgBar.
-  Minimum delay: entry cannot fire on fvgBar itself — must be at least 1 bar later.
-    retestBar  = bar_index > fvgBar
-    inFvgZone  = low <= fvgTop and high >= fvgBottom
-    entrySignal = phase == 3 and retestBar and inFvgZone
-  On entrySignal:
-    phase := 4  // entry fired, stop tracking
-    entryPrice = math.avg(fvgTop, fvgBottom)  // midpoint of FVG as proxy entry
-    stopPrice  = sweepLow - atrBuf * ta.atr(atrLen)
-    riskPts    = entryPrice - stopPrice
-    tgtPrice   = entryPrice + rrRatio * riskPts
-    // Plot shapes and labels only on this bar
-    plotshape(true, "Entry", shape.triangleup, location.belowbar,
-              color.new(color.lime, 0), size=size.small)
-    label.new(bar_index, stopPrice, "SL", style=label.style_label_up,
-              color=color.new(color.red, 70), textcolor=color.white, size=size.small)
-    label.new(bar_index, tgtPrice, "TP", style=label.style_label_down,
-              color=color.new(color.teal, 70), textcolor=color.white, size=size.small)
-    // Clean up FVG box — entry consumed it
-    if not na(fvgBox)
-        box.delete(fvgBox)
-    fvgBox := na
-
-  After phase 4, reset to phase 0 on the next bar:
-    if phase == 4
+    // [FILL: invalidation — close beyond sweep extreme means setup is dead.
+    //  For bullish: close < sweepLevel. For bearish: close > sweepLevel.]
+    else if close < sweepLevel
         phase := 0
+        if not na(fvgBox)
+            box.delete(fvgBox)
+        fvgBox := na
 
-── Session filter ────────────────────────────────────────────────────────────
-Apply when the intake mentions specific trading hours or a killzone:
-  sessionInput = input.string("0930-1600", "Session (exchange time)")
-  inSession    = not na(time(timeframe.period, sessionInput))
-Wrap ALL phase transition logic in: if inSession
+// ── Phase 3 → 4: Retest entry trigger ────────────────────────────────────────
+// Entry CANNOT fire on fvgBar — bar_index > fvgBar is a hard guard.
+var bool entrySignal = false
+entrySignal := false
+if phase == 3 and bar_index > fvgBar
+    inZone = low <= fvgTop and high >= fvgBottom
+    if inZone
+        phase       := 4
+        entrySignal := true
+        entryPrice  = math.avg(fvgTop, fvgBottom)
+        // [FILL: for bearish, stopPrice = sweepLevel + atrBuf * atr, tgt below entry]
+        stopPrice   = sweepLevel - atrBuf * atr
+        riskPts     = math.max(entryPrice - stopPrice, syminfo.mintick)
+        tgtPrice    = entryPrice + rrRatio * riskPts
+        label.new(bar_index, stopPrice, "SL",
+                  style=label.style_label_up,
+                  color=color.new(color.red,  55), textcolor=color.white, size=size.small)
+        label.new(bar_index, tgtPrice, "TP",
+                  style=label.style_label_down,
+                  color=color.new(color.teal, 55), textcolor=color.white, size=size.small)
+        if not na(fvgBox)
+            box.delete(fvgBox)
+        fvgBox := na
 
-── Inputs block (always at the top of the script) ───────────────────────────
-Expose every tunable number as an input, not a hardcoded literal:
-  pivotLen      = input.int(5,    "Pivot lookback",         minval=2)
-  displaceMulti = input.float(1.0,"Displacement ATR multi", minval=0.3, step=0.1)
-  atrLen        = input.int(14,   "ATR length",             minval=5)
-  atrBuf        = input.float(0.5,"Stop ATR buffer",        minval=0.0, step=0.1)
-  rrRatio       = input.float(2.0,"Target R:R",             minval=0.5, step=0.5)
-  maxPhaseBars  = input.int(10,   "Max bars per phase",     minval=3)
-  maxRetestWait = input.int(50,   "Max bars to wait for retest", minval=10)
+// Phase 4 exists for exactly one bar then resets
+if phase == 4
+    phase := 0
 
-── General output rules ──────────────────────────────────────────────────────
-- //@version=5, indicator() only, overlay=true.
-- var for all persistent state. Inputs block first. Phase transitions clearly labelled.
-- No dead code. No unused variables. Keep under 160 lines.
-- Compile-safe: all array/series accesses use non-negative integer offsets.
-- If any intake condition is unautomatable (subjective visual, news, order flow), omit it
-  from the code and add a precise explanation to clarifications[].
-- If the intake is too vague to model any phase faithfully, set pineScript to null.`;
+// ── Signal plots ─────────────────────────────────────────────────────────────
+// [FILL: for bearish entry, change triangleup→triangledown, belowbar→abovebar]
+plotshape(entrySignal, "Entry signal",
+          shape.triangleup, location.belowbar,
+          color.new(color.lime, 0), size=size.small)
+
+// Mark sweep confirmation bar for visual reference
+sweepConfirmedBar = phase[1] == 0 and phase == 1
+// [FILL: for bearish, change abovebar to abovebar (same), but change low to high in the sweep block above]
+plotshape(sweepConfirmedBar, "Sweep",
+          shape.circle, location.abovebar,
+          color.new(color.orange, 10), size=size.tiny)
+─────────────────────────────────────────────────────────────────────────────
+
+FILL INSTRUCTIONS:
+1. Replace [FILL: strategy name] with a name derived from the intake.
+2. Choose bullish or bearish direction from the intake and update ALL [FILL] blocks accordingly.
+3. Add a session filter ONLY if the intake explicitly mentions a killzone or trading session.
+4. Do not add any logic outside the skeleton structure above.
+5. Do not replace var declarations, phase guards, or drawing management code.
+6. Do not use bgcolor() for the FVG zone — the box.new() in the skeleton is correct.
+7. Do not call box.new / line.new / label.new outside of phase-transition if blocks.
+8. bar_index is an integer series. Use bar_index - N arithmetic. Never bar_index[-N].
+9. If the intake does not specify enough detail to choose direction or sweep level confidently,
+   set pineScript to null and explain the ambiguity in clarifications[].`;
 
 export function buildPlaybookUserMessage(input: AIPlaybookInput): string {
   const lines: string[] = [
@@ -254,8 +273,8 @@ export function buildPlaybookUserMessage(input: AIPlaybookInput): string {
 
   lines.push(
     "",
-    "Translate each element of the intake into the appropriate phase of the state machine.",
-    "Adapt the bullish/bearish direction and session filter to match what the intake describes.",
+    "Use the mandatory Pine Script skeleton above. Replace every [FILL] marker with code derived from this intake.",
+    "Adapt the direction (bullish/bearish), sweep reference level, and session filter to match what the intake describes.",
     "Generate the playbook rules and Pine Script indicator JSON now."
   );
   return lines.join("\n");
