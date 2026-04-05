@@ -33,7 +33,10 @@ export function PineScriptView({ pineScript, pineScriptNotes, version }: PineScr
             Pine Script Indicator
           </h2>
           <p className="text-[12px] text-muted font-mono mt-0.5">
-            v{version} · AI-generated draft
+            v{version} · AI-generated draft ·{" "}
+            <a href="/strategy-spec" className="text-accent hover:text-primary transition-colors">
+              view spec →
+            </a>
           </p>
         </div>
         <button

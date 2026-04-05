@@ -8,17 +8,18 @@ const NAV_SECTIONS = [
   {
     label: "Platform",
     items: [
-      { label: "Dashboard",     href: "/dashboard" },
-      { label: "Playbook",      href: "/playbook" },
-      { label: "Pine Script",   href: "/pine-script" },
-      { label: "Setup Library", href: "/setups" },
+      { label: "Dashboard",      href: "/dashboard" },
+      { label: "Playbook",       href: "/playbook" },
+      { label: "Strategy Spec",  href: "/strategy-spec" },
+      { label: "Pine Script",    href: "/pine-script" },
+      { label: "Setup Library",  href: "/setups" },
     ],
   },
   {
     label: "Workflow",
     items: [
-      { label: "Training",      href: "/training" },
-      { label: "Trade Review",  href: "/reviews" },
+      { label: "Training",       href: "/training" },
+      { label: "Trade Review",   href: "/reviews" },
     ],
   },
 ] as const;
