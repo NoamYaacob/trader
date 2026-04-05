@@ -19,7 +19,7 @@ const PlaybookDraftSchema = z.object({
   rules:          z.array(RuleDraftSchema).min(1),
   // spec is a freeform JSON object — structural validation happens in the app layer.
   // Using z.record(z.unknown()) here avoids duplicating the full StrategySpec shape in Zod.
-  spec:           z.record(z.unknown()).nullable().optional(),
+  spec:           z.record(z.string(), z.unknown()).nullable().optional(),
   pineScript:     z.string().nullable().optional(),
   clarifications: z.array(z.string()).optional(),
 });

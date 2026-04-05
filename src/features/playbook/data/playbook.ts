@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/db/client";
 import type { PlaybookRecord, PlaybookRule, RuleCategory } from "../types";
 import type { StrategySpec } from "@/features/ai/types";
@@ -90,7 +91,7 @@ export async function createPlaybookWithRules(
         strategyId, userId, version, summary, status: "DRAFT",
         pineScript:      pineScript      ?? null,
         pineScriptNotes: pineScriptNotes ?? null,
-        spec:            spec            ?? null,
+        spec:            spec != null ? (spec as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
     });
     await tx.rule.createMany({

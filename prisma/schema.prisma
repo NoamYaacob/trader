@@ -30,6 +30,12 @@ model User {
   strategies       Strategy[]
   trainingSessions TrainingSession[]
   tradeReviews     TradeReview[]
+  // PropGuard relations
+  traderProfile    TraderProfile?
+  propFirmAccounts PropFirmAccount[]
+  guardrails       Guardrails[]
+  tradingSessions  TradingSession[]
+  disciplineEvents DisciplineEvent[]
 }
 
 model Account {
@@ -299,4 +305,169 @@ model RuleAdherence {
 
   review TradeReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   rule   Rule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// PropGuard — Discipline & risk protection
+// ─────────────────────────────────────────────
+
+enum TraderType {
+  SCALPER
+  INTRADAY
+  SWING
+}
+
+enum TraderGoal {
+  PASS_EVAL
+  PROTECT_FUNDED
+  REACH_PAYOUT
+  IMPROVE_DISCIPLINE
+}
+
+enum PropProductType {
+  EVALUATION
+  FUNDED
+  EXPRESS
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum AccountSafetyStatus {
+  SAFE
+  WARNING
+  DANGER
+}
+
+enum DisciplineEventType {
+  OVERTRADING_WARNING
+  RAPID_FIRE_WARNING
+  DAILY_LOSS_WARNING
+  DAILY_LOSS_CRITICAL
+  LOSS_STREAK_WARNING
+  OUTSIDE_HOURS_WARNING
+  PAYOUT_VIOLATION_WARNING
+  COOLDOWN_TRIGGERED
+  MANUAL_NOTE
+}
+
+enum DisciplineSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model PropFirmTemplate {
+  id               String  @id @default(cuid())
+  name             String  @unique   // internal slug: "apex", "topstep", etc.
+  displayName      String
+  defaultDailyLoss Float?            // reference loss limit for a $50k account
+  eodFlatRule      Boolean @default(false)
+  trailingDrawdown Boolean @default(false)
+  consistencyRule  Boolean @default(false)
+  payoutAvailable  Boolean @default(true)
+  notes            String? @db.Text
+
+  accounts PropFirmAccount[]
+}
+
+model TraderProfile {
+  id          String     @id @default(cuid())
+  userId      String     @unique
+  traderType  TraderType
+  mainMarket  String?    // e.g. "NQ", "ES", "CL"
+  platform    String?    // e.g. "NinjaTrader", "Rithmic"
+  goal        TraderGoal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PropFirmAccount {
+  id               String          @id @default(cuid())
+  userId           String
+  templateId       String?
+  firmName         String
+  accountSize      Float
+  productType      PropProductType @default(EVALUATION)
+  dailyLossLimit   Float           // effective daily loss limit in dollars
+  eodFlatRule      Boolean         @default(false)
+  trailingDrawdown Boolean         @default(false)
+  consistencyRule  Boolean         @default(false)
+  payoutMode       Boolean         @default(false)
+  isActive         Boolean         @default(true)
+  notes            String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template   PropFirmTemplate? @relation(fields: [templateId], references: [id])
+  guardrails Guardrails?
+  sessions   TradingSession[]
+}
+
+model Guardrails {
+  id                      String  @id @default(cuid())
+  userId                  String
+  accountId               String  @unique
+  maxDailyLoss            Float?  // personal tighter limit; null = use firm limit
+  maxTradesPerDay         Int?
+  maxTradesCount          Int?    // max N trades...
+  maxTradesWindowMin      Int?    // ...within this many minutes
+  maxConsecutiveLosses    Int?
+  cooldownAfterLossMin    Int?
+  noTradeAfterHour        Int?    // 24h exchange time, e.g. 15 = no trades after 3pm ET
+  noSizeIncreaseAfterLoss Boolean @default(false)
+  payoutModeEnabled       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account PropFirmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model TradingSession {
+  id                String              @id @default(cuid())
+  userId            String
+  accountId         String
+  date              DateTime            @db.Date
+  status            SessionStatus       @default(ACTIVE)
+  safetyStatus      AccountSafetyStatus @default(SAFE)
+  tradesCount       Int                 @default(0)
+  dailyPnl          Float               @default(0)
+  dailyLossUsed     Float               @default(0) // positive = dollars of loss consumed
+  disciplineScore   Int?
+  payoutSafetyScore Int?
+  notes             String?             @db.Text
+  completedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account PropFirmAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  events  DisciplineEvent[]
+
+  @@unique([userId, accountId, date])
+}
+
+model DisciplineEvent {
+  id        String              @id @default(cuid())
+  sessionId String
+  userId    String
+  type      DisciplineEventType
+  severity  DisciplineSeverity  @default(WARNING)
+  message   String              @db.Text
+  data      Json?
+
+  createdAt DateTime @default(now())
+
+  session TradingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

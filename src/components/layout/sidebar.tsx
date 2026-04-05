@@ -6,20 +6,19 @@ import { cn } from "@/lib/utils";
 
 const NAV_SECTIONS = [
   {
-    label: "Platform",
+    label: "Prop Guard",
     items: [
-      { label: "Dashboard",      href: "/dashboard" },
-      { label: "Playbook",       href: "/playbook" },
-      { label: "Strategy Spec",  href: "/strategy-spec" },
-      { label: "Pine Script",    href: "/pine-script" },
-      { label: "Setup Library",  href: "/setups" },
+      { label: "Dashboard",       href: "/dashboard" },
+      { label: "Today's Session", href: "/session" },
+      { label: "Rules",           href: "/rules" },
     ],
   },
   {
-    label: "Workflow",
+    label: "Setup",
     items: [
-      { label: "Training",       href: "/training" },
-      { label: "Trade Review",   href: "/reviews" },
+      { label: "Trader Profile",  href: "/setup/trader" },
+      { label: "Prop Firm",       href: "/setup/firm" },
+      { label: "Guardrails",      href: "/setup/guardrails" },
     ],
   },
 ] as const;

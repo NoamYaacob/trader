@@ -2,233 +2,260 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { TopBar } from "@/components/layout/top-bar";
-import { StatCard } from "@/components/shared/stat-card";
-import { NextActionCard } from "@/components/shared/next-action-card";
-import { EmptyState } from "@/components/shared/empty-state";
-import { getLatestStrategy } from "@/features/strategy";
-import { getLatestPlaybook } from "@/features/playbook/data/playbook";
-import { getSetupCount } from "@/features/setup";
-import { getTrainableSetups } from "@/features/training";
-import { getReviewSummaries } from "@/features/reviews";
-import { INTAKE_STEPS } from "@/features/strategy/types";
-import type { IntakeStepNumber } from "@/features/strategy/types";
+import {
+  getTraderProfile,
+  getActiveAccount,
+  getGuardrails,
+  getTodaySession,
+  getRecentSessions,
+  computeSafetyState,
+} from "@/features/prop-guard/data/prop-guard";
 import { cn } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in");
 
-  const userId   = session.user.id;
-  const strategy = await getLatestStrategy(userId);
+  const userId  = session.user.id;
+  const profile = await getTraderProfile(userId);
+  if (!profile) redirect("/setup/trader");
 
-  // Load playbook and setup count only when relevant.
-  const playbook =
-    strategy?.status === "ACTIVE"
-      ? await getLatestPlaybook(strategy.id, userId)
-      : null;
+  const account = await getActiveAccount(userId);
+  if (!account) redirect("/setup/firm");
 
-  const setupCount =
-    strategy?.status === "ACTIVE" ? await getSetupCount(userId) : 0;
+  const [guardrails, todaySession, recentSessions] = await Promise.all([
+    getGuardrails(account.id, userId),
+    getTodaySession(userId, account.id),
+    getRecentSessions(userId, account.id, 5),
+  ]);
 
-  const trainableSetups =
-    strategy?.status === "ACTIVE" && playbook?.status === "CONFIRMED"
-      ? await getTrainableSetups(userId)
-      : [];
+  const safety = computeSafetyState(todaySession, account, guardrails);
 
-  const recentReviews =
-    strategy?.status === "ACTIVE" && playbook?.status === "CONFIRMED"
-      ? await getReviewSummaries(userId, 5)
-      : [];
+  const statusColors = {
+    SAFE:    { bg: "bg-valid/10",   border: "border-valid/30",   text: "text-valid",   dot: "bg-valid"   },
+    WARNING: { bg: "bg-warning/10", border: "border-warning/30", text: "text-warning", dot: "bg-warning" },
+    DANGER:  { bg: "bg-invalid/10", border: "border-invalid/30", text: "text-invalid", dot: "bg-invalid"  },
+  } as const;
+  const sc = statusColors[safety.status];
 
-  // ── Derive display state ──────────────────────────────────────────────
-
-  let subtitle = "No playbook confirmed";
-  let nextActionCard: React.ReactNode;
-
-  if (!strategy || strategy.status === "DRAFT") {
-    const stepNum = (strategy?.intakeStep ?? 1) as IntakeStepNumber;
-    const isNew   = !strategy || strategy.intakeStep <= 1;
-
-    subtitle        = "No playbook yet";
-    nextActionCard  = isNew ? (
-      <NextActionCard
-        title="Start with your strategy intake."
-        description="Describe your strategy in plain language. We'll formalize it into a playbook you can train against."
-        cta="Begin intake"
-        href="/onboarding"
-      />
-    ) : (
-      <NextActionCard
-        title={`Continue your intake — step ${stepNum} of 7.`}
-        description={`You stopped at: "${INTAKE_STEPS[stepNum]?.title ?? ""}". Pick up where you left off.`}
-        cta="Continue intake"
-        href="/onboarding"
-      />
-    );
-  } else if (
-    strategy.status === "SUBMITTED" ||
-    strategy.status === "PROCESSING"
-  ) {
-    subtitle = "Generating playbook…";
-    nextActionCard = (
-      <div className="card-surface accent-border-left bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)] flex items-center gap-6 px-6 py-5">
-        <div className="w-5 h-5 rounded-full border-2 border-accent border-t-transparent animate-spin shrink-0" />
-        <div>
-          <p className="text-[15px] font-semibold text-primary tracking-tight">
-            Building your playbook
-          </p>
-          <p className="text-[13px] text-secondary leading-snug mt-1">
-            Your intake has been submitted. Rules are being generated from your strategy description.
-          </p>
-        </div>
-        <Link href="/playbook" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
-          View status →
-        </Link>
-      </div>
-    );
-  } else if (strategy.status === "ACTIVE" && playbook?.status === "DRAFT") {
-    subtitle = `v${playbook.version} · awaiting review`;
-    nextActionCard = (
-      <NextActionCard
-        title="Your playbook is ready for review."
-        description={`${playbook.rules.length} rules generated from your strategy intake. Review, edit, and confirm each rule before training.`}
-        cta="Review playbook"
-        href="/playbook"
-      />
-    );
-  } else if (strategy.status === "ACTIVE" && playbook?.status === "CONFIRMED") {
-    const checklistN    = playbook.rules.filter((r) => r.inChecklist).length;
-    const readyToTrain  = trainableSetups.length > 0;
-    const totalExamples = trainableSetups.reduce((sum, s) => sum + s.exampleCount, 0);
-    subtitle = `v${playbook.version} · ${playbook.rules.length} rules confirmed`;
-
-    nextActionCard = readyToTrain ? (
-      <NextActionCard
-        title="Your playbook is confirmed. Start training."
-        description={`${trainableSetups.length} setup${trainableSetups.length !== 1 ? "s" : ""} ready · ${totalExamples} example${totalExamples !== 1 ? "s" : ""}. Run a recognition drill to sharpen your eye.`}
-        cta="Start training →"
-        href="/training"
-      />
-    ) : (
-      <div className="card-surface accent-border-left bg-[linear-gradient(100deg,var(--accent-dim),var(--accent-dim-2)_40%,transparent_70%)] flex items-center gap-6 px-6 py-5">
-        <div>
-          <p className="text-[15px] font-semibold text-primary tracking-tight">
-            Playbook confirmed.
-          </p>
-          <p className="text-[13px] text-secondary leading-snug mt-1">
-            {playbook.rules.length} rules active · {checklistN} in pre-trade checklist.
-            {" "}Add annotated examples to your setups to unlock training sessions.
-          </p>
-        </div>
-        <Link href="/setups" className="shrink-0 ml-auto text-[12px] text-accent hover:text-primary transition-colors font-mono">
-          Go to setups →
-        </Link>
-      </div>
-    );
+  // Next risk trigger message
+  let nextTrigger: string | null = null;
+  if (safety.status !== "DANGER") {
+    if (safety.tradesLimit != null) {
+      const tradesLeft = safety.tradesLimit - safety.tradesCount;
+      const lossLeft   = safety.lossRoomLeft;
+      if (tradesLeft <= 2) {
+        nextTrigger = `${tradesLeft} trade${tradesLeft !== 1 ? "s" : ""} until daily limit`;
+      } else if (safety.lossPercent >= 50) {
+        nextTrigger = `$${lossLeft.toLocaleString()} loss room remaining`;
+      }
+    } else if (safety.lossPercent >= 50) {
+      nextTrigger = `$${safety.lossRoomLeft.toLocaleString()} loss room remaining`;
+    }
   }
 
-  // Playbook + session stats.
-  const ruleCount      = playbook?.rules.length ?? 0;
-  const checklistCount = playbook?.rules.filter((r) => r.inChecklist).length ?? 0;
-
-  // Review stats.
-  const completedReviews = recentReviews.filter((r) => r.status === "COMPLETE");
-  const lastScore        = completedReviews[0]?.adherenceScore ?? null;
-  const thisWeek         = completedReviews.filter((r) => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
-    return r.completedAt ? r.createdAt >= cutoff : false;
-  }).length;
+  // Firm-specific warnings
+  const firmWarnings: string[] = [];
+  if (account.eodFlatRule)      firmWarnings.push("EOD flat rule active — must close all positions by end of day");
+  if (account.trailingDrawdown) firmWarnings.push("Trailing drawdown — max loss trails your account high-water mark");
+  if (account.consistencyRule)  firmWarnings.push("Consistency rule — no single day can dominate your profit");
 
   return (
     <div className="flex flex-col min-h-full">
-      <TopBar title="Dashboard" subtitle={subtitle} />
+      <TopBar title="Dashboard" subtitle={account.firmName} />
 
-      <div className="flex-1 p-8 space-y-5 max-w-[1060px] w-full mx-auto">
+      <div className="flex-1 p-8 max-w-[1060px] w-full mx-auto space-y-5">
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Rules"         value={ruleCount > 0 ? String(ruleCount) : "—"} detail={ruleCount > 0 ? `${checklistCount} in checklist` : undefined} />
-          <StatCard label="Setups"        value={setupCount > 0 ? String(setupCount) : "—"} />
-          <StatCard label="Last review"   value={lastScore !== null ? `${lastScore}%` : "—"} detail={lastScore !== null ? "adherence" : "no reviews"} />
-          <StatCard label="This week"     value={thisWeek > 0 ? String(thisWeek) : "—"} detail={thisWeek > 0 ? `review${thisWeek !== 1 ? "s" : ""}` : "0 reviews"} />
+        {/* Safety status banner */}
+        <div className={cn("rounded-lg border px-5 py-4 flex items-center gap-4", sc.bg, sc.border)}>
+          <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", sc.dot)} />
+          <div className="flex-1 min-w-0">
+            <p className={cn("text-[15px] font-semibold", sc.text)}>
+              {safety.status === "SAFE" && "Account safe"}
+              {safety.status === "WARNING" && "Approaching limit — slow down"}
+              {safety.status === "DANGER" && "Limit reached — stop trading"}
+            </p>
+            {nextTrigger && (
+              <p className="text-[12px] text-secondary mt-0.5">{nextTrigger}</p>
+            )}
+          </div>
+          {safety.payoutMode && (
+            <span className="shrink-0 text-[10px] font-mono font-semibold px-2 py-1 rounded border border-accent/40 text-accent bg-[var(--accent-dim)]">
+              PAYOUT MODE
+            </span>
+          )}
+          <Link href="/session" className="shrink-0 text-[11px] font-mono text-secondary hover:text-primary transition-colors">
+            {todaySession ? "Update session →" : "Start session →"}
+          </Link>
         </div>
 
-        {/* Next action */}
-        {nextActionCard}
-
-        {/* Activity columns */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="card-surface p-5 flex flex-col gap-3">
-            <p className="label-section">Recent Sessions</p>
-            <EmptyState
-              title="No sessions yet."
-              description="Add a setup with an annotated example before running your first training session."
-            />
+        {/* Stats grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {/* Daily loss */}
+          <div className="card-surface p-4 flex flex-col gap-2">
+            <p className="label-section">Daily loss used</p>
+            <p className={cn("text-[22px] font-semibold font-mono tabular-nums", safety.lossPercent >= 80 ? "text-invalid" : safety.lossPercent >= 50 ? "text-warning" : "text-primary")}>
+              ${safety.dailyLossUsed.toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", safety.lossPercent >= 80 ? "bg-invalid" : safety.lossPercent >= 50 ? "bg-warning" : "bg-valid")}
+                  style={{ width: `${Math.min(safety.lossPercent, 100)}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted font-mono tabular-nums">{Math.round(safety.lossPercent)}%</span>
+            </div>
+            <p className="text-[11px] text-muted">limit ${safety.dailyLossLimit.toLocaleString()} · ${safety.lossRoomLeft.toLocaleString()} left</p>
           </div>
 
+          {/* Trades */}
+          <div className="card-surface p-4 flex flex-col gap-2">
+            <p className="label-section">Trades today</p>
+            <p className="text-[22px] font-semibold font-mono tabular-nums text-primary">
+              {safety.tradesCount}
+              {safety.tradesLimit != null && (
+                <span className="text-[14px] text-muted font-normal"> / {safety.tradesLimit}</span>
+              )}
+            </p>
+            {safety.tradesLimit != null && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all",
+                        safety.tradesCount >= safety.tradesLimit ? "bg-invalid" :
+                        safety.tradesCount >= safety.tradesLimit * 0.8 ? "bg-warning" : "bg-valid"
+                      )}
+                      style={{ width: `${Math.min((safety.tradesCount / safety.tradesLimit) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted font-mono">
+                    {Math.round((safety.tradesCount / safety.tradesLimit) * 100)}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted">
+                  {Math.max(safety.tradesLimit - safety.tradesCount, 0)} trades remaining
+                </p>
+              </>
+            )}
+            {safety.tradesLimit == null && (
+              <p className="text-[11px] text-muted">no daily limit set</p>
+            )}
+          </div>
+
+          {/* Today P&L */}
+          <div className="card-surface p-4 flex flex-col gap-2">
+            <p className="label-section">Today&apos;s P&amp;L</p>
+            <p className={cn("text-[22px] font-semibold font-mono tabular-nums",
+              todaySession == null ? "text-muted" :
+              todaySession.dailyPnl >= 0 ? "text-valid" : "text-invalid"
+            )}>
+              {todaySession == null
+                ? "—"
+                : `${todaySession.dailyPnl >= 0 ? "+" : ""}$${todaySession.dailyPnl.toLocaleString()}`
+              }
+            </p>
+            <p className="text-[11px] text-muted">
+              {todaySession ? `session ${todaySession.status.toLowerCase()}` : "no session started"}
+            </p>
+          </div>
+
+          {/* Account */}
+          <div className="card-surface p-4 flex flex-col gap-2">
+            <p className="label-section">Account</p>
+            <p className="text-[22px] font-semibold text-primary">
+              ${(account.accountSize / 1000).toFixed(0)}k
+            </p>
+            <p className="text-[11px] text-muted truncate">{account.firmName} · {account.productType.toLowerCase()}</p>
+          </div>
+        </div>
+
+        {/* Firm warnings */}
+        {firmWarnings.length > 0 && (
+          <div className="card-surface p-4 flex flex-col gap-2">
+            <p className="label-section">Firm rules active</p>
+            <div className="flex flex-col gap-1.5">
+              {firmWarnings.map((w) => (
+                <div key={w} className="flex items-start gap-2">
+                  <span className="text-warning mt-0.5 text-[10px]">▲</span>
+                  <p className="text-[12px] text-secondary">{w}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent sessions + discipline events */}
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* Recent sessions */}
           <div className="card-surface p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <p className="label-section">Recent Reviews</p>
-              <Link href="/reviews" className="text-[11px] text-secondary hover:text-primary transition-colors font-mono">
-                View all →
+              <p className="label-section">Recent Sessions</p>
+              <Link href="/session" className="text-[11px] text-secondary hover:text-primary transition-colors font-mono">
+                Today →
               </Link>
             </div>
-            {completedReviews.length === 0 ? (
-              <EmptyState
-                title="No reviews logged."
-                description="After a trade, log it here to measure how closely you followed your rules."
-                action={{ label: "Log a review", href: "/reviews/new" }}
-              />
+            {recentSessions.length === 0 ? (
+              <div className="flex flex-col gap-1 py-2">
+                <p className="text-[13px] text-secondary">No sessions yet.</p>
+                <p className="text-[11px] text-muted">Log today&apos;s trades to start tracking your discipline.</p>
+              </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {completedReviews.slice(0, 4).map((r) => {
-                  const date = r.tradeDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                  const sc   = r.adherenceScore;
-                  const col  = sc !== null && sc >= 80 ? "text-valid" : sc !== null && sc >= 60 ? "text-warning" : "text-invalid";
+                {recentSessions.map((s) => {
+                  const dateStr = s.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  const pnlPos  = s.dailyPnl >= 0;
+                  const ssColor = s.safetyStatus === "SAFE" ? "text-valid" : s.safetyStatus === "WARNING" ? "text-warning" : "text-invalid";
                   return (
-                    <Link
-                      key={r.id}
-                      href={`/reviews/${r.id}/results`}
-                      className="flex items-center gap-3 px-3 py-2 rounded border border-border hover:border-border-strong hover:bg-[var(--bg-elevated)] transition-colors"
-                    >
-                      <span className={cn(
-                        "text-[10px] font-mono font-semibold px-1 py-px rounded border shrink-0",
-                        r.direction === "LONG"
-                          ? "border-valid/30 text-valid"
-                          : "border-invalid/30 text-invalid"
+                    <div key={s.id} className="flex items-center gap-3 px-3 py-2 rounded border border-border">
+                      <span className={cn("text-[10px] font-mono font-semibold px-1 py-px rounded border shrink-0", ssColor,
+                        s.safetyStatus === "SAFE" ? "border-valid/30" : s.safetyStatus === "WARNING" ? "border-warning/30" : "border-invalid/30"
                       )}>
-                        {r.direction}
+                        {s.safetyStatus}
                       </span>
-                      <p className="text-[12px] text-primary flex-1 truncate">{r.instrument}</p>
-                      <p className="text-[11px] text-muted font-mono shrink-0">{date}</p>
-                      <p className={cn("text-[12px] font-semibold font-mono tabular-nums w-8 text-right shrink-0", col)}>
-                        {sc}%
+                      <p className="text-[12px] text-muted font-mono shrink-0">{dateStr}</p>
+                      <p className={cn("text-[12px] font-semibold font-mono tabular-nums ml-auto shrink-0", pnlPos ? "text-valid" : "text-invalid")}>
+                        {pnlPos ? "+" : ""}${s.dailyPnl.toLocaleString()}
                       </p>
-                    </Link>
+                      <p className="text-[11px] text-muted shrink-0">{s.tradesCount}T</p>
+                    </div>
                   );
                 })}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Setup preview */}
-        <div className="card-surface p-5 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="label-section">Your Setups</p>
-            <Link
-              href="/setups"
-              className="text-[11px] text-secondary hover:text-primary transition-colors font-mono"
-            >
-              View all →
-            </Link>
+          {/* Today's events */}
+          <div className="card-surface p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="label-section">Discipline Events Today</p>
+              <Link href="/rules" className="text-[11px] text-secondary hover:text-primary transition-colors font-mono">
+                View rules →
+              </Link>
+            </div>
+            {!todaySession || todaySession.events.length === 0 ? (
+              <div className="flex flex-col gap-1 py-2">
+                <p className="text-[13px] text-secondary">No events logged.</p>
+                <p className="text-[11px] text-muted">Events are recorded when you approach or breach a guardrail.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {todaySession.events.slice(-5).map((ev) => {
+                  const sevColor = ev.severity === "CRITICAL" ? "text-invalid" : ev.severity === "WARNING" ? "text-warning" : "text-muted";
+                  return (
+                    <div key={ev.id} className="flex items-start gap-2.5 px-3 py-2 rounded border border-border">
+                      <span className={cn("text-[10px] font-mono font-semibold shrink-0 mt-0.5", sevColor)}>
+                        {ev.severity}
+                      </span>
+                      <p className="text-[12px] text-secondary flex-1 min-w-0">{ev.message}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <EmptyState
-            title="No setups yet."
-            description="Build your setup library to enable training sessions."
-            action={{ label: "Add first setup", href: "/setups" }}
-          />
         </div>
 
       </div>
