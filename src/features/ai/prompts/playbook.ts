@@ -43,17 +43,63 @@ Rule writing guidelines:
 
 ── Pine Script section ────────────────────────────────────────────────────────
 
-Pine Script guidelines:
+Pine Script output rules:
 - Version: //@version=5
-- Type: indicator() — not a strategy(). Use overlay=true when the logic plots on price, overlay=false for oscillators.
-- Purpose: visually highlight where the entry conditions are met. Keep it focused on entry signals only.
-- Use built-in functions and standard indicators (ta.ema, ta.rsi, ta.macd, ta.atr, etc.) to represent the conditions.
-- Plot entry signals with plotshape() or bgcolor() so they are visible on the chart.
-- Add brief comments explaining what each block of code checks.
-- If the strategy involves a condition that cannot be automated in Pine Script (e.g. "price action looks like a flag", "news catalyst"), skip that condition and add a note to clarifications[] instead.
-- If the strategy is so ambiguous that no meaningful indicator can be generated, set pineScript to null and explain in clarifications[].
-- Do not include alert() calls, strategy.entry(), or order management — this is a visual aid only.
-- Keep the script under 80 lines wherever possible.
+- Type: indicator() only — never strategy(). Set overlay=true for price-based plots, overlay=false for oscillator panels.
+- Purpose: visually mark on the chart where the trader's specific entry conditions are met.
+- Do NOT generate generic or placeholder logic (no arbitrary EMA crossovers, no RSI thresholds) unless
+  the trader's intake explicitly describes those exact conditions.
+- Every line of code must correspond to a condition stated or clearly implied in the intake.
+- If the strategy cannot be faithfully represented, set pineScript to null and explain in clarifications[].
+
+Faithful translation — concepts and their Pine Script implementations:
+
+  LIQUIDITY SWEEPS / STOP HUNTS
+  - Detect a wick that exceeds a prior swing high/low by a small ATR margin then closes back inside range.
+  - Use ta.highest(high, lookback) / ta.lowest(low, lookback) to track swing levels.
+  - Example pattern: high > ta.highest(high[1], n) and close < ta.highest(high[1], n)
+    → price swept above the prior high then rejected back below it.
+
+  REJECTION / WICK REJECTION
+  - Measure wick size relative to body: upper wick = high - math.max(open, close);
+    lower wick = math.min(open, close) - low; body = math.abs(close - open).
+  - A strong rejection bar has a wick ≥ 2× body on the rejection side.
+  - Combine with direction: bullish rejection = large lower wick + close > open.
+
+  FAIR VALUE GAPS (FVG / IFVG)
+  - Bullish FVG: high[2] < low[0]  (gap between candle[-2].high and candle[0].low — middle candle has no overlap).
+  - Bearish FVG: low[2]  > high[0].
+  - Track FVG zone with a box or horizontal lines: top = low[0], bottom = high[2] for bullish.
+  - Optional: check if price has returned to fill the gap (price between top and bottom).
+
+  BREAK OF STRUCTURE (BOS) / CHANGE OF CHARACTER (CHoCH)
+  - BOS long: close crosses above a prior swing high (ta.crossover(close, ta.highest(high[1], n))).
+  - Track swing highs/lows with a small lookback (5–10 bars) and plot the break.
+
+  ENTRY TRIGGER (e.g. limit at FVG, market on BOS candle close)
+  - For a limit entry at FVG: plot the FVG zone. The entry signal fires when price re-enters the zone.
+  - For a BOS entry: plotshape on the bar that closes above/below the structure level.
+
+  STOP / INVALIDATION
+  - Plot a horizontal line or label at the invalidation level (e.g. below the sweep low).
+  - Use ta.atr(14) to compute ATR-based stop distances when the intake mentions ATR.
+
+  TARGET / R:R
+  - If a fixed R:R is specified (e.g. 2R), compute target = entry + (entry - stop) * ratio.
+  - Plot as a label or horizontal line on the signal bar.
+
+Specific output instructions:
+- Build the indicator around the entry conditions described in the intake — not generic indicators.
+- Use comments to label each logical block (e.g. // FVG detection, // Liquidity sweep check).
+- Plot signals with plotshape() (style=shape.triangleup/down, location=location.belowbar/abovebar).
+- Highlight zones (FVG, sweep level) with line.new() or bgcolor() scoped to the relevant bars.
+- Keep the script under 120 lines.
+- Every variable must be declared and used; no dead code.
+- If a condition from the intake is genuinely impossible to automate (e.g. "I look for a specific candle
+  pattern that feels right", "based on news"), skip it and add it to clarifications[] with a plain-English
+  explanation of why.
+- If the intake is so vague that no condition can be translated faithfully, set pineScript to null and
+  list each missing precision point in clarifications[].
 - The script must compile without errors in TradingView Pine Script v5.`;
 
 export function buildPlaybookUserMessage(input: AIPlaybookInput): string {

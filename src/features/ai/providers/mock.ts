@@ -111,38 +111,18 @@ class MockAIProvider implements AIAdapter {
       });
     }
 
-    // Stub Pine Script — references the instrument/timeframe from intake.
-    // A real provider generates this from actual entry conditions.
-    const pineScript = [
-      `//@version=5`,
-      `indicator("${instrument} Strategy Signal [Mock]", overlay=true)`,
-      ``,
-      `// ── Inputs ────────────────────────────────────────────────────────────`,
-      `fastLen = input.int(9,  "Fast EMA length")`,
-      `slowLen = input.int(21, "Slow EMA length")`,
-      ``,
-      `// ── Calculations ──────────────────────────────────────────────────────`,
-      `fastEma = ta.ema(close, fastLen)`,
-      `slowEma = ta.ema(close, slowLen)`,
-      ``,
-      `// Entry signal: fast EMA crosses above slow EMA`,
-      `longSignal = ta.crossover(fastEma, slowEma)`,
-      ``,
-      `// ── Plots ─────────────────────────────────────────────────────────────`,
-      `plot(fastEma, "Fast EMA", color=color.new(color.yellow, 0),  linewidth=1)`,
-      `plot(slowEma, "Slow EMA", color=color.new(color.gray,   40), linewidth=1)`,
-      ``,
-      `plotshape(longSignal, "Long Signal",`,
-      `  style=shape.triangleup, location=location.belowbar,`,
-      `  color=color.new(color.lime, 0), size=size.small)`,
-    ].join("\n");
-
-    const clarifications = [
-      `This is a mock Pine Script generated for the "${instrument}" strategy on the "${timeframe}" timeframe.`,
-      "Replace the EMA crossover logic with your actual entry conditions before using this on a live chart.",
-    ];
-
-    return { summary, rules, pineScript, clarifications };
+    // The mock provider never fabricates Pine Script — that would show placeholder
+    // code as if it were generated from the user's actual strategy, which is misleading.
+    // The real Anthropic provider generates Pine Script from the intake.
+    return {
+      summary,
+      rules,
+      pineScript:     null,
+      clarifications: [
+        "Pine Script generation requires the live AI provider. " +
+        "Set AI_PROVIDER=anthropic and provide a valid ANTHROPIC_API_KEY to generate a real indicator.",
+      ],
+    };
   }
 }
 
