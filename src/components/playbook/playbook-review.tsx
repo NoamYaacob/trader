@@ -174,9 +174,15 @@ export function PlaybookReview({ playbook: initial, archived = false }: Playbook
         </div>
       )}
 
-      {/* Edit strategy intake — shown only on CONFIRMED (not archived, not draft) */}
+      {/* Edit strategy intake + Pine Script links — shown only on CONFIRMED */}
       {!archived && confirmed && (
-        <div className="border-t border-border pt-6">
+        <div className="border-t border-border pt-6 flex items-center gap-6">
+          <a
+            href="/pine-script"
+            className="text-[12px] text-accent hover:text-primary transition-colors font-mono"
+          >
+            View Pine Script indicator →
+          </a>
           <a
             href="/strategy/edit"
             className="text-[12px] text-muted hover:text-secondary transition-colors font-mono"

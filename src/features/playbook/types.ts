@@ -15,15 +15,17 @@ export interface PlaybookRule {
 }
 
 export interface PlaybookRecord {
-  id:          string;
-  strategyId:  string;
-  version:     number;
-  summary:     string | null;
-  status:      PlaybookStatus;
-  confirmedAt: Date | null;
-  rules:       PlaybookRule[];
-  createdAt:   Date;
-  updatedAt:   Date;
+  id:               string;
+  strategyId:       string;
+  version:          number;
+  summary:          string | null;
+  status:           PlaybookStatus;
+  confirmedAt:      Date | null;
+  rules:            PlaybookRule[];
+  pineScript:       string | null;
+  pineScriptNotes:  string | null;
+  createdAt:        Date;
+  updatedAt:        Date;
 }
 
 export const CATEGORY_LABELS: Record<RuleCategory, string> = {

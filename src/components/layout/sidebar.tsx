@@ -10,6 +10,7 @@ const NAV_SECTIONS = [
     items: [
       { label: "Dashboard",     href: "/dashboard" },
       { label: "Playbook",      href: "/playbook" },
+      { label: "Pine Script",   href: "/pine-script" },
       { label: "Setup Library", href: "/setups" },
     ],
   },

@@ -15,8 +15,10 @@ const RuleDraftSchema = z.object({
 });
 
 const PlaybookDraftSchema = z.object({
-  summary: z.string().min(1),
-  rules:   z.array(RuleDraftSchema).min(1),
+  summary:        z.string().min(1),
+  rules:          z.array(RuleDraftSchema).min(1),
+  pineScript:     z.string().nullable().optional(),
+  clarifications: z.array(z.string()).optional(),
 });
 
 // Default model — fast and cost-effective for structured JSON generation.
@@ -35,7 +37,7 @@ class AnthropicAIProvider implements AIAdapter {
   async generatePlaybook(input: AIPlaybookInput): Promise<AIPlaybookDraft> {
     const message = await this.client.messages.create({
       model:      this.model,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system:     PLAYBOOK_SYSTEM_PROMPT,
       messages: [
         { role: "user", content: buildPlaybookUserMessage(input) },

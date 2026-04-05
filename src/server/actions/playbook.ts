@@ -59,7 +59,16 @@ export async function generatePlaybook(
       revisionNotes:          revisionNotes?.trim() || undefined,
     });
 
-    await createPlaybookWithRules(strategyId, userId, draft.summary, draft.rules);
+    // Build pineScriptNotes from the clarifications array, if any.
+    const pineScriptNotes = draft.clarifications?.length
+      ? draft.clarifications.join("\n")
+      : null;
+
+    await createPlaybookWithRules(
+      strategyId, userId, draft.summary, draft.rules,
+      draft.pineScript ?? null,
+      pineScriptNotes
+    );
     await setStrategyActive(strategyId, userId);
   } catch (err) {
     // Mark the strategy as FAILED so the playbook page renders a clear error

@@ -24,8 +24,14 @@ export interface AIRuleDraft {
 }
 
 export interface AIPlaybookDraft {
-  summary: string;
-  rules:   AIRuleDraft[];
+  summary:         string;
+  rules:           AIRuleDraft[];
+  // AI-generated Pine Script v5 indicator.
+  // null/absent when the strategy is too ambiguous to produce reliable code.
+  pineScript?:     string | null;
+  // Clarifications or caveats the AI surfaced about the generated code,
+  // e.g. conditions it couldn't translate precisely.
+  clarifications?: string[];
 }
 
 export interface AIAdapter {

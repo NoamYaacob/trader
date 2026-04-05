@@ -114,13 +114,18 @@ enum PlaybookStatus {
 }
 
 model Playbook {
-  id          String         @id @default(cuid())
-  userId      String
-  strategyId  String
-  version     Int            @default(1)
-  summary     String?        @db.Text
-  status      PlaybookStatus @default(DRAFT)
-  confirmedAt DateTime?
+  id                String         @id @default(cuid())
+  userId            String
+  strategyId        String
+  version           Int            @default(1)
+  summary           String?        @db.Text
+  status            PlaybookStatus @default(DRAFT)
+  confirmedAt       DateTime?
+  // AI-generated Pine Script indicator for this playbook version.
+  // null until the playbook is generated; may be absent if the strategy is
+  // too ambiguous for code generation (see pineScriptNotes for the reason).
+  pineScript        String?        @db.Text
+  pineScriptNotes   String?        @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

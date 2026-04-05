@@ -22,14 +22,16 @@ function toRule(row: {
 
 // Map a Prisma Playbook row (with rules) to the domain PlaybookRecord type.
 function toPlaybookRecord(row: {
-  id:          string;
-  strategyId:  string;
-  version:     number;
-  summary:     string | null;
-  status:      string;
-  confirmedAt: Date | null;
-  createdAt:   Date;
-  updatedAt:   Date;
+  id:              string;
+  strategyId:      string;
+  version:         number;
+  summary:         string | null;
+  status:          string;
+  confirmedAt:     Date | null;
+  pineScript:      string | null;
+  pineScriptNotes: string | null;
+  createdAt:       Date;
+  updatedAt:       Date;
   rules: {
     id:          string;
     text:        string;
@@ -40,15 +42,17 @@ function toPlaybookRecord(row: {
   }[];
 }): PlaybookRecord {
   return {
-    id:          row.id,
-    strategyId:  row.strategyId,
-    version:     row.version,
-    summary:     row.summary,
-    status:      row.status as PlaybookRecord["status"],
-    confirmedAt: row.confirmedAt,
-    rules:       row.rules.map(toRule).sort((a, b) => a.order - b.order),
-    createdAt:   row.createdAt,
-    updatedAt:   row.updatedAt,
+    id:              row.id,
+    strategyId:      row.strategyId,
+    version:         row.version,
+    summary:         row.summary,
+    status:          row.status as PlaybookRecord["status"],
+    confirmedAt:     row.confirmedAt,
+    rules:           row.rules.map(toRule).sort((a, b) => a.order - b.order),
+    pineScript:      row.pineScript,
+    pineScriptNotes: row.pineScriptNotes,
+    createdAt:       row.createdAt,
+    updatedAt:       row.updatedAt,
   };
 }
 
@@ -68,13 +72,19 @@ export async function createPlaybookWithRules(
   strategyId: string,
   userId: string,
   summary: string,
-  rules: { text: string; category: RuleCategory; inChecklist: boolean }[]
+  rules: { text: string; category: RuleCategory; inChecklist: boolean }[],
+  pineScript?: string | null,
+  pineScriptNotes?: string | null
 ): Promise<PlaybookRecord> {
   const version = (await getMaxPlaybookVersion(strategyId)) + 1;
 
   const row = await prisma.$transaction(async (tx) => {
     const playbook = await tx.playbook.create({
-      data: { strategyId, userId, version, summary, status: "DRAFT" },
+      data: {
+        strategyId, userId, version, summary, status: "DRAFT",
+        pineScript:      pineScript      ?? null,
+        pineScriptNotes: pineScriptNotes ?? null,
+      },
     });
     await tx.rule.createMany({
       data: rules.map((r, i) => ({
