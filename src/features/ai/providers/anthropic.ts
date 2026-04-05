@@ -5,7 +5,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { PLAYBOOK_SYSTEM_PROMPT, buildPlaybookUserMessage } from "../prompts/playbook";
-import type { AIAdapter, AIPlaybookInput, AIPlaybookDraft } from "../types";
+import type { AIAdapter, AIPlaybookInput, AIPlaybookDraft, StrategySpec } from "../types";
 
 // Zod schema mirrors AIPlaybookDraft — validates the model's JSON output.
 const RuleDraftSchema = z.object({
@@ -17,6 +17,9 @@ const RuleDraftSchema = z.object({
 const PlaybookDraftSchema = z.object({
   summary:        z.string().min(1),
   rules:          z.array(RuleDraftSchema).min(1),
+  // spec is a freeform JSON object — structural validation happens in the app layer.
+  // Using z.record(z.unknown()) here avoids duplicating the full StrategySpec shape in Zod.
+  spec:           z.record(z.unknown()).nullable().optional(),
   pineScript:     z.string().nullable().optional(),
   clarifications: z.array(z.string()).optional(),
 });
@@ -37,7 +40,7 @@ class AnthropicAIProvider implements AIAdapter {
   async generatePlaybook(input: AIPlaybookInput): Promise<AIPlaybookDraft> {
     const message = await this.client.messages.create({
       model:      this.model,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system:     PLAYBOOK_SYSTEM_PROMPT,
       messages: [
         { role: "user", content: buildPlaybookUserMessage(input) },
@@ -72,7 +75,11 @@ class AnthropicAIProvider implements AIAdapter {
       );
     }
 
-    return result.data;
+    const { spec: rawSpec, ...rest } = result.data;
+    return {
+      ...rest,
+      spec: (rawSpec ?? null) as StrategySpec | null,
+    };
   }
 }
 

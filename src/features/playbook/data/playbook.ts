@@ -1,5 +1,6 @@
 import { prisma } from "@/db/client";
 import type { PlaybookRecord, PlaybookRule, RuleCategory } from "../types";
+import type { StrategySpec } from "@/features/ai/types";
 
 // Map a Prisma Rule row to the domain PlaybookRule type.
 function toRule(row: {
@@ -30,6 +31,7 @@ function toPlaybookRecord(row: {
   confirmedAt:     Date | null;
   pineScript:      string | null;
   pineScriptNotes: string | null;
+  spec:            unknown;
   createdAt:       Date;
   updatedAt:       Date;
   rules: {
@@ -51,6 +53,9 @@ function toPlaybookRecord(row: {
     rules:           row.rules.map(toRule).sort((a, b) => a.order - b.order),
     pineScript:      row.pineScript,
     pineScriptNotes: row.pineScriptNotes,
+    // Prisma returns Json fields as `unknown`. Cast to StrategySpec — the AI
+    // is responsible for producing a conformant object; null-check at read site.
+    spec:            (row.spec ?? null) as StrategySpec | null,
     createdAt:       row.createdAt,
     updatedAt:       row.updatedAt,
   };
@@ -74,7 +79,8 @@ export async function createPlaybookWithRules(
   summary: string,
   rules: { text: string; category: RuleCategory; inChecklist: boolean }[],
   pineScript?: string | null,
-  pineScriptNotes?: string | null
+  pineScriptNotes?: string | null,
+  spec?: StrategySpec | null
 ): Promise<PlaybookRecord> {
   const version = (await getMaxPlaybookVersion(strategyId)) + 1;
 
@@ -84,6 +90,7 @@ export async function createPlaybookWithRules(
         strategyId, userId, version, summary, status: "DRAFT",
         pineScript:      pineScript      ?? null,
         pineScriptNotes: pineScriptNotes ?? null,
+        spec:            spec            ?? null,
       },
     });
     await tx.rule.createMany({

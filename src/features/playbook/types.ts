@@ -1,6 +1,8 @@
 // Types scoped to the Playbook feature.
 // The UI layer imports from this file, never directly from Prisma.
 
+export type { StrategySpec } from "@/features/ai/types";
+
 export type RuleCategory  = "ENTRY" | "EXIT" | "INVALIDATION" | "RISK" | "MINDSET";
 export type RuleSource    = "AI_GENERATED" | "TRADER_ADDED";
 export type PlaybookStatus = "DRAFT" | "CONFIRMED" | "ARCHIVED";
@@ -24,6 +26,9 @@ export interface PlaybookRecord {
   rules:            PlaybookRule[];
   pineScript:       string | null;
   pineScriptNotes:  string | null;
+  // Normalized strategy spec extracted by the AI from free-text intake.
+  // null for playbooks generated before the spec layer was introduced.
+  spec:             import("@/features/ai/types").StrategySpec | null;
   createdAt:        Date;
   updatedAt:        Date;
 }

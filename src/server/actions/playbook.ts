@@ -67,7 +67,8 @@ export async function generatePlaybook(
     await createPlaybookWithRules(
       strategyId, userId, draft.summary, draft.rules,
       draft.pineScript ?? null,
-      pineScriptNotes
+      pineScriptNotes,
+      draft.spec ?? null
     );
     await setStrategyActive(strategyId, userId);
   } catch (err) {

@@ -126,6 +126,10 @@ model Playbook {
   // too ambiguous for code generation (see pineScriptNotes for the reason).
   pineScript        String?        @db.Text
   pineScriptNotes   String?        @db.Text
+  // Normalized strategy spec derived by the AI from free-text intake.
+  // Stored as JSON — typed as StrategySpec in the application layer.
+  // Null for playbooks generated before the spec layer was introduced.
+  spec              Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
